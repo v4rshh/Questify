@@ -1,0 +1,12 @@
+# Environment and generated files
+.env
+.env.local
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+node_modules/
+.next/
+coverage/
+uploads/
+
