@@ -1,34 +1,175 @@
-"use client";
-import { FormEvent, useEffect, useState } from "react";
+'use client';
 
-type Course = { id: string; title: string };
-const api = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-export default function Home() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [title, setTitle] = useState("");
-  const [error, setError] = useState("");
-  async function refresh() {
-    const response = await fetch(`${api}/api/courses`);
-    if (response.ok) setCourses(await response.json());
-  }
-  useEffect(() => { refresh().catch(() => setError("API is unavailable. Start Docker Compose first.")); }, []);
-  async function createCourse(event: FormEvent) {
-    event.preventDefault();
-    if (!title.trim()) return;
-    const response = await fetch(`${api}/api/courses`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) });
-    if (!response.ok) return setError("Could not create course.");
-    setTitle(""); setError(""); await refresh();
-  }
-  return <main style={{ maxWidth: 800, margin: "0 auto", padding: "64px 24px" }}>
-    <p style={{ color: "#7c3aed", fontWeight: 700 }}>QUESTIFY · MVP</p>
-    <h1 style={{ fontSize: 42, margin: "8px 0" }}>Build your learning path.</h1>
-    <p>Create a course, then connect material uploads, quizzes, and review scheduling.</p>
-    <form onSubmit={createCourse} style={{ display: "flex", gap: 8, margin: "32px 0" }}>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Operating Systems" style={{ flex: 1, padding: 12, border: "1px solid #cbd5e1", borderRadius: 8 }} />
-      <button style={{ border: 0, borderRadius: 8, padding: "12px 18px", background: "#7c3aed", color: "white", fontWeight: 700 }}>Create course</button>
-    </form>
-    {error && <p style={{ color: "#b91c1c" }}>{error}</p>}
-    <section><h2>Your courses</h2>{courses.length ? courses.map((course) => <article key={course.id} style={{ background: "white", borderRadius: 10, padding: 18, marginBottom: 10, border: "1px solid #e2e8f0" }}><strong>{course.title}</strong><p style={{ marginBottom: 0, color: "#64748b" }}>Ready for materials and learning activities</p></article>) : <p>No courses yet.</p>}</section>
-  </main>;
+export default function LandingAuthPage() {
+  const router = useRouter();
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState('student');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Simulate login / register & redirect to dashboard
+    router.push(role === 'admin' ? '/admin' : '/dashboard');
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '24px',
+      background: 'radial-gradient(circle at 50% 30%, rgba(99, 102, 241, 0.15), transparent 70%), #0B0F17'
+    }}>
+      <div className="glass-card" style={{ width: '100%', maxWidth: '440px', padding: '40px' }}>
+        
+        {/* Logo */}
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, #6366F1, #D946EF)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '28px',
+            fontWeight: 'bold',
+            color: '#fff',
+            boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
+            marginBottom: '16px'
+          }}>
+            Q
+          </div>
+          <h1 className="gradient-text" style={{ fontSize: '28px', fontWeight: '800' }}>
+            Questify
+          </h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '6px' }}>
+            {isLogin ? 'Enter the AI Gamified Learning Realm' : 'Create your Learner or Admin Account'}
+          </p>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {!isLogin && (
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                FULL NAME
+              </label>
+              <input
+                type="text"
+                required
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Alex Rivera"
+                style={{
+                  width: '100%',
+                  background: 'rgba(15, 23, 42, 0.6)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '10px',
+                  padding: '12px 16px',
+                  color: '#FFF',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+          )}
+
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+              EMAIL ADDRESS
+            </label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="alex@questify.edu"
+              style={{
+                width: '100%',
+                background: 'rgba(15, 23, 42, 0.6)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '10px',
+                padding: '12px 16px',
+                color: '#FFF',
+                fontSize: '14px',
+                outline: 'none'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+              PASSWORD
+            </label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••••••"
+              style={{
+                width: '100%',
+                background: 'rgba(15, 23, 42, 0.6)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '10px',
+                padding: '12px 16px',
+                color: '#FFF',
+                fontSize: '14px',
+                outline: 'none'
+              }}
+            />
+          </div>
+
+          {!isLogin && (
+            <div>
+              <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>
+                SELECT ROLE
+              </label>
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                style={{
+                  width: '100%',
+                  background: 'rgba(15, 23, 42, 0.8)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '10px',
+                  padding: '12px 16px',
+                  color: '#FFF',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              >
+                <option value="student">Student Learner</option>
+                <option value="instructor">Instructor</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </div>
+          )}
+
+          <button type="submit" className="gradient-btn" style={{ width: '100%', padding: '14px', marginTop: '12px' }}>
+            {isLogin ? 'Log In to Realm 🚀' : 'Create Account ✨'}
+          </button>
+        </form>
+
+        {/* Toggle */}
+        <div style={{ textAlign: 'center', marginTop: '24px', fontSize: '13px', color: 'var(--text-muted)' }}>
+          {isLogin ? "Don't have an account? " : "Already have an account? "}
+          <span
+            onClick={() => setIsLogin(!isLogin)}
+            style={{ color: '#8B5CF6', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            {isLogin ? 'Sign up' : 'Log in'}
+          </span>
+        </div>
+
+      </div>
+    </div>
+  );
 }

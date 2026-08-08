@@ -1,37 +1,45 @@
 from contextlib import asynccontextmanager
-from uuid import UUID
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+
 from .config import settings
-from .database import Base, engine, get_db
-from .models import Course, Material
-from .schemas import CourseCreate, CourseRead, MaterialCreate, MaterialRead
+from .database import Base, engine
+from .api.v1 import auth, courses, gamification, admin
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    # Auto-initialize database tables for prototype development
     Base.metadata.create_all(bind=engine)
     yield
 
-app = FastAPI(title="Questify API", version="0.1.0", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=[settings.web_origin], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
-@app.get("/health")
-def health(): return {"status": "ok"}
+app = FastAPI(
+    title="Questify API Platform",
+    description="Backend API powering Questify AI-driven gamified learning",
+    version="1.0.0",
+    lifespan=lifespan
+)
 
-@app.post("/api/courses", response_model=CourseRead, status_code=status.HTTP_201_CREATED)
-def create_course(payload: CourseCreate, db: Session = Depends(get_db)):
-    course = Course(**payload.model_dump()); db.add(course); db.commit(); db.refresh(course)
-    return course
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Open CORS for local Next.js client
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.get("/api/courses", response_model=list[CourseRead])
-def list_courses(db: Session = Depends(get_db)):
-    return db.scalars(select(Course).order_by(Course.created_at.desc())).all()
+# Wire API v1 routers
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(courses.router, prefix="/api/v1")
+app.include_router(gamification.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1")
 
-@app.post("/api/courses/{course_id}/materials", response_model=MaterialRead, status_code=status.HTTP_201_CREATED)
-def create_material(course_id: UUID, payload: MaterialCreate, db: Session = Depends(get_db)):
-    if not db.get(Course, course_id): raise HTTPException(status_code=404, detail="Course not found")
-    material = Material(course_id=course_id, filename=payload.filename)
-    db.add(material); db.commit(); db.refresh(material)
-    return material
+
+@app.get("/health", tags=["Health"])
+def health_check():
+    return {
+        "status": "ok",
+        "service": "Questify API",
+        "version": "1.0.0"
+    }
