@@ -2,7 +2,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    database_url: str = "postgresql+psycopg://questify:change-me@localhost:5432/questify"
+    # Default to zero-setup SQLite database so the app runs without Docker/PostgreSQL
+    database_url: str = "sqlite:///./questify.db"
     web_origin: str = "http://localhost:3000"
     secret_key: str = "questify-secret-key-change-in-production-super-secure-32bytes"
     algorithm: str = "HS256"
