@@ -1,0 +1,26 @@
+# CodeRabbit Configuration for Questify Platform
+version: "2"
+language: "en-US"
+tone_instructions: "Provide concise, constructive code reviews. Focus on security, TypeScript/React best practices for Next.js, and Python/FastAPI async performance."
+
+reviews:
+  profile: "chill"
+  request_tools:
+    ast_grep:
+      enable: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+      - master
+  path_filters:
+    - "!node_modules/**"
+    - "!.next/**"
+    - "!__pycache__/**"
+    - "!*.db"
+    - "!package-lock.json"
+  collapse_walkthrough: true
+
+chat:
+  auto_reply: true
