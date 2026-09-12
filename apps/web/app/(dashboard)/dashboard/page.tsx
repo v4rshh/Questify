@@ -1,22 +1,67 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import { fetchApi } from '@/lib/api';
+
+interface Course { id: string; title: string; description?: string | null }
+interface Material { id: string; filename: string; status: string; summary?: string | null }
 
 export default function DashboardPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [newCourseTitle, setNewCourseTitle] = useState('');
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    fetchApi<Course[]>('/courses')
+      .then((items) => {
+        setCourses(items);
+        if (items.length) setSelectedCourseId(items[0].id);
+      })
+      .catch((err) => setUploadStatus(err instanceof Error ? err.message : 'Could not load courses.'));
+  }, []);
+
+  const createCourse = async () => {
+    if (!newCourseTitle.trim()) return;
+    try {
+      const course = await fetchApi<Course>('/courses', {
+        method: 'POST',
+        body: JSON.stringify({ title: newCourseTitle.trim() }),
+      });
+      setCourses((current) => [course, ...current]);
+      setSelectedCourseId(course.id);
+      setNewCourseTitle('');
+      setUploadStatus(`Created course: ${course.title}`);
+    } catch (err) {
+      setUploadStatus(err instanceof Error ? err.message : 'Could not create course.');
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setIsUploading(true);
-      setUploadStatus(`Uploading ${file.name}...`);
-      setTimeout(() => {
-        setIsUploading(false);
-        setUploadStatus(`Successfully uploaded ${file.name}! Processing background OCR & vector embeddings.`);
-      }, 1500);
+    if (!file) return;
+    if (!selectedCourseId) {
+      setUploadStatus('Create or select a course before uploading a document.');
+      return;
+    }
+    setIsUploading(true);
+    setUploadStatus(`Uploading and indexing ${file.name}...`);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const material = await fetchApi<Material>(`/courses/${selectedCourseId}/materials/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+      setUploadStatus(`${material.filename} is ready. ${material.summary || ''}`);
+    } catch (err) {
+      setUploadStatus(err instanceof Error ? err.message : 'Upload failed.');
+    } finally {
+      setIsUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -80,7 +125,28 @@ export default function DashboardPage() {
             <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: '700' }}>📤 Upload Learning Materials</h3>
-                <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>PDF, DOCX, PPTX, Images</span>
+                <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>PDF, DOCX, TXT, Markdown</span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <select
+                  value={selectedCourseId}
+                  onChange={(e) => setSelectedCourseId(e.target.value)}
+                  style={{ flex: 1, background: '#111827', color: '#FFF', border: '1px solid rgba(255,255,255,.12)', borderRadius: '8px', padding: '10px' }}
+                >
+                  <option value="">Select a course</option>
+                  {courses.map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input
+                  value={newCourseTitle}
+                  onChange={(e) => setNewCourseTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && createCourse()}
+                  placeholder="New course name"
+                  style={{ flex: 1, background: 'rgba(15,23,42,.6)', color: '#FFF', border: '1px solid rgba(255,255,255,.12)', borderRadius: '8px', padding: '10px' }}
+                />
+                <button type="button" onClick={createCourse} className="gradient-btn">Create</button>
               </div>
               
               <label style={{
@@ -92,13 +158,13 @@ export default function DashboardPage() {
                 background: 'rgba(15, 23, 42, 0.4)',
                 transition: 'all 0.2s ease'
               }}>
-                <input type="file" onChange={handleFileUpload} accept=".pdf,.docx,.pptx,.txt,image/*" style={{ display: 'none' }} />
+                <input type="file" disabled={isUploading} onChange={handleFileUpload} accept=".pdf,.docx,.txt,.md,.markdown" style={{ display: 'none' }} />
                 <div style={{ fontSize: '36px', marginBottom: '12px' }}>📄</div>
                 <div style={{ fontWeight: '600', color: '#F8FAFC', marginBottom: '4px' }}>
                   Click to upload or drag & drop files
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                  OCR, text extraction, knowledge graph & quiz auto-generation enabled
+                  Text extraction and course-scoped RAG indexing enabled
                 </div>
               </label>
 

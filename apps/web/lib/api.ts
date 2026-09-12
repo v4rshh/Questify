@@ -3,10 +3,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/a
 export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('questify_token') : null;
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string>),
-  };
+  const headers: Record<string, string> = { ...(options.headers as Record<string, string>) };
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;

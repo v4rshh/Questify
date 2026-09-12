@@ -9,11 +9,22 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-questify} -d ${POSTGRES_DB:-questify}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   api:
     build: ./apps/api
@@ -26,9 +37,12 @@ services:
       - "8000:8000"
     volumes:
       - ./apps/api:/app
+      - rag_data:/app/data
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   worker:
     build: ./apps/worker
@@ -38,12 +52,13 @@ services:
     volumes:
       - ./apps/worker:/app
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
 
   web:
     build: ./apps/web
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
     ports:
       - "3000:3000"
     volumes:
@@ -55,4 +70,4 @@ services:
 
 volumes:
   postgres_data:
-
+  rag_data:

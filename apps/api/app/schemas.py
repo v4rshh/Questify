@@ -1,6 +1,6 @@
 from datetime import datetime
 from uuid import UUID
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
 
 
 # Auth & User Schemas
@@ -104,6 +104,29 @@ class AchievementRead(BaseModel):
     description: str
     badge_icon: str
     unlocked_at: datetime
+
+
+# AI Tutor Schemas
+class TutorChatRequest(BaseModel):
+    message: str
+    mode: str = "normal"  # "normal" | "game"
+    course_id: UUID
+    node_id: UUID | None = None
+
+
+class TutorCitation(BaseModel):
+    source: str
+    page: int | None = None
+    excerpt: str
+    chunk_index: int
+
+
+class TutorChatResponse(BaseModel):
+    response: str
+    mode: str
+    xp_earned: int = 0
+    total_xp: int
+    citations: list[TutorCitation] = Field(default_factory=list)
 
 
 class GamificationDashboardRead(BaseModel):

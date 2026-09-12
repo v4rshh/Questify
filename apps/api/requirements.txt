@@ -7,4 +7,17 @@ pydantic[email]>=2.9.0
 email-validator>=2.0.0
 pyjwt[crypto]>=2.9.0
 passlib[bcrypt]>=1.7.4
-bcrypt>=4.0.1
+bcrypt>=4.0.1,<4.1  # passlib 1.7.4 breaks on bcrypt>=4.1 (removed __about__ attr)
+
+# AI orchestration (Tutor agent + LangGraph state machine)
+langgraph>=0.2.0
+langchain-core>=0.3.0
+openai>=1.50.0
+
+# Course-scoped document RAG
+chromadb>=0.5.0
+sentence-transformers>=3.0.0
+langchain-text-splitters>=0.3.0
+pypdf>=5.0.0
+python-docx>=1.1.0
+python-multipart>=0.0.12

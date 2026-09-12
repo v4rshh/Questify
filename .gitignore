@@ -1,12 +1,14 @@
 # Environment and generated files
-.env
-.env.local
+.env*
+!.env.example
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
 node_modules/
 .next/
+.vscode/
 coverage/
 uploads/
+apps/api/data/
 *.db

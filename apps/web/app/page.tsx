@@ -2,6 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { fetchApi } from '@/lib/api';
+
+interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: { role: string };
+}
 
 export default function LandingAuthPage() {
   const router = useRouter();
@@ -10,11 +17,32 @@ export default function LandingAuthPage() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState('student');
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate login / register & redirect to dashboard
-    router.push(role === 'admin' ? '/admin' : '/dashboard');
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      if (!isLogin) {
+        await fetchApi('/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({ email, password, full_name: fullName, role }),
+        });
+      }
+      const result = await fetchApi<AuthResponse>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      localStorage.setItem('questify_token', result.access_token);
+      localStorage.setItem('questify_user', JSON.stringify(result.user));
+      router.push(result.user.role === 'admin' ? '/admin' : '/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Authentication failed.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -153,8 +181,9 @@ export default function LandingAuthPage() {
             </div>
           )}
 
-          <button type="submit" className="gradient-btn" style={{ width: '100%', padding: '14px', marginTop: '12px' }}>
-            {isLogin ? 'Log In to Realm 🚀' : 'Create Account ✨'}
+          {error && <div style={{ color: '#F87171', fontSize: '13px' }}>{error}</div>}
+          <button type="submit" disabled={isSubmitting} className="gradient-btn" style={{ width: '100%', padding: '14px', marginTop: '12px' }}>
+            {isSubmitting ? 'Please wait...' : isLogin ? 'Log In to Realm 🚀' : 'Create Account ✨'}
           </button>
         </form>
 

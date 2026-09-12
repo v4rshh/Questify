@@ -120,6 +120,20 @@ docker compose up --build
 | `GET` | `/api/v1/admin/users` | List all registered users (Admin only) |
 | `PATCH`| `/api/v1/admin/users/{id}/role` | Update user role (Admin only) |
 
+### Course-scoped RAG tutor
+
+Learners create a course, upload a `.pdf`, `.docx`, `.txt`, `.md`, or
+`.markdown` document from the dashboard, and select that course in the tutor.
+Questify extracts and chunks the file, creates local sentence-transformer
+embeddings, and stores them in persistent ChromaDB storage. Every vector is
+tagged with both the authenticated learner ID and course ID; the API applies
+both filters on every retrieval. Groq rewrites and grades the query, then
+generates a grounded answer with source citations and PDF page numbers.
+
+The first ingestion downloads the configured embedding model and can take
+longer than later uploads. Docker Compose persists uploaded files and vectors
+in the `rag_data` volume.
+
 ---
 
 ---
