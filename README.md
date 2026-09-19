@@ -10,7 +10,7 @@
 - **Interactive AI Tutor Chat**: Grounded RAG assistant with page-level document citations (`📄 OS_Chapter_3.pdf (p. 14)`).
 - **Active Recall Flashcards**: Spaced repetition system powered by the **SuperMemo 2 (SM-2)** algorithm.
 - **Adaptive Quiz Engine**: Dynamic difficulty scaling (Easy $\rightarrow$ Hard $\rightarrow$ Boss Level) with instant feedback & XP rewards.
-- **Gamification Mechanics**: Experience Points (XP), streak tracking (🔥 7 Days), Mastery Tiers (Bronze $\rightarrow$ Diamond), Daily/Weekly Quests, and Global Leaderboards.
+- **Gamification Mechanics**: Experience Points (XP), streak tracking (🔥 7 Days), Mastery Tiers (Bronze $\rightarrow$ Diamond), and personal learning milestones.
 - **Administrator Dashboard**: User management, role assignment (`student`, `instructor`, `admin`), and live AI service health telemetry.
 
 ---
@@ -28,7 +28,7 @@
 | | Data Access | **SQLAlchemy 2.0** ORM, **Pydantic v2** Schema Validation |
 | **Databases & Cache**| Primary DB | **PostgreSQL 16** (Production) / **SQLite** (Zero-setup local dev fallback) |
 | | Vector Database | **Qdrant** (Hybrid Dense + BM25 Vector Search) |
-| | Cache & Leaderboards | **Redis 7.2** (Sorted Sets `ZSET` for live XP rankings) |
+| | Background infrastructure | **Redis 7.2** (available for future job processing) |
 | **AI Framework** | Agent Orchestration | **LangGraph** (Stateful multi-agent cycles) |
 | | RAG & Indexing | **LlamaIndex** (Hierarchical node chunking & document retrieval) |
 | | LLM Engine | **Ollama** (Local Dev) / **LiteLLM Router** (Cloud production APIs) |
@@ -116,7 +116,6 @@ docker compose up --build
 | `GET` | `/api/v1/courses` | List enrolled courses |
 | `POST` | `/api/v1/courses/{id}/materials` | Upload study material metadata |
 | `GET` | `/api/v1/gamification/dashboard` | Get XP, streak counter, active quests, and badges |
-| `GET` | `/api/v1/gamification/leaderboard` | Get global XP rankings |
 | `GET` | `/api/v1/admin/users` | List all registered users (Admin only) |
 | `PATCH`| `/api/v1/admin/users/{id}/role` | Update user role (Admin only) |
 

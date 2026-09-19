@@ -6,7 +6,7 @@ from sqlalchemy.exc import OperationalError
 
 from .config import settings
 from .database import Base, engine
-from .api.v1 import auth, courses, gamification, admin, tutor
+from .api.v1 import auth, courses, gamification, admin, learning, tutor
 
 
 @asynccontextmanager
@@ -25,6 +25,8 @@ async def lifespan(_: FastAPI):
             time.sleep(2)
     if last_error is not None:
         raise last_error
+    from .services.world_jobs import resume_jobs
+    resume_jobs()
     yield
 
 
@@ -47,6 +49,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(courses.router, prefix="/api/v1")
 app.include_router(gamification.router, prefix="/api/v1")
+app.include_router(learning.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
 app.include_router(tutor.router, prefix="/api/v1")
 

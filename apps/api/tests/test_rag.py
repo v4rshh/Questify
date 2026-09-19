@@ -1,5 +1,6 @@
 from app.rag.documents import chunk_sections, extract_sections
 from app.rag.store import CourseVectorStore
+from app.rag.workflow import _generate
 
 
 class _FakeEmbeddingModel:
@@ -49,3 +50,11 @@ def test_search_always_filters_by_user_and_course():
             {"course_id": {"$eq": "course-b"}},
         ]
     }
+
+
+def test_indexed_course_does_not_fall_back_to_general_answer_without_sources():
+    result = _generate({"has_indexed_material": True, "relevant_chunks": []})
+
+    assert result["grounded"] is False
+    assert result["citations"] == []
+    assert "indexed resources" in result["answer"]

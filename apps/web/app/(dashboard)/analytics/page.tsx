@@ -1,74 +1,21 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import { Icon } from '@/components/Icon';
+import { fetchApi } from '@/lib/api';
+
+interface Course { id: string; title: string; }
+interface Node { id: string; title: string; mastery_score: number; is_unlocked: boolean; }
+interface Analytics { total_nodes: number; mastered_nodes: number; total_flashcards: number; due_flashcards: number; completed_quizzes: number; average_quiz_accuracy: number; node_mastery: Node[]; }
 
 export default function AnalyticsPage() {
-  return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-main)' }}>
-      <Sidebar />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <Header title="Performance Analytics & Mastery Scores" />
-
-        <main style={{ marginLeft: '260px', padding: '32px', display: 'flex', flexDirection: 'column', gap: '28px' }}>
-          
-          {/* Top Metrics Row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
-            <div className="glass-card" style={{ padding: '24px' }}>
-              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>Overall Mastery Score</div>
-              <div style={{ fontSize: '32px', fontWeight: '800', color: '#10B981' }}>78.4%</div>
-              <div style={{ fontSize: '12px', color: '#10B981', marginTop: '4px' }}>↑ +5.2% from last week</div>
-            </div>
-            <div className="glass-card" style={{ padding: '24px' }}>
-              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>Average Quiz Accuracy</div>
-              <div style={{ fontSize: '32px', fontWeight: '800', color: '#6366F1' }}>86%</div>
-              <div style={{ fontSize: '12px', color: '#6366F1', marginTop: '4px' }}>14 Quizzes Completed</div>
-            </div>
-            <div className="glass-card" style={{ padding: '24px' }}>
-              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '4px' }}>Active Retention Rate</div>
-              <div style={{ fontSize: '32px', fontWeight: '800', color: '#F59E0B' }}>92%</div>
-              <div style={{ fontSize: '12px', color: '#F59E0B', marginTop: '4px' }}>42 Flashcards Reviewed</div>
-            </div>
-          </div>
-
-          {/* Strong vs Weak Concepts breakdown */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-            
-            <div className="glass-card" style={{ padding: '24px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#10B981', marginBottom: '16px' }}>
-                💪 Strongest Concepts
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                  <span>Process States & Transitions</span>
-                  <span style={{ fontWeight: '700', color: '#10B981' }}>95% Mastery</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                  <span>CPU Scheduling (FCFS, SJF)</span>
-                  <span style={{ fontWeight: '700', color: '#10B981' }}>90% Mastery</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="glass-card" style={{ padding: '24px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#F43F5E', marginBottom: '16px' }}>
-                ⚠️ Target Concepts for Revision
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                  <span>Virtual Memory Paging Algorithms</span>
-                  <span style={{ fontWeight: '700', color: '#F43F5E' }}>55% Mastery</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                  <span>Deadlock Banker&apos;s Algorithm</span>
-                  <span style={{ fontWeight: '700', color: '#F59E0B' }}>62% Mastery</span>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </main>
-      </div>
-    </div>
-  );
+  const [courses, setCourses] = useState<Course[]>([]); const [courseId, setCourseId] = useState(''); const [analytics, setAnalytics] = useState<Analytics | null>(null); const [error, setError] = useState('');
+  useEffect(() => { fetchApi<Course[]>('/courses').then((items) => { setCourses(items); if (items.length) setCourseId(items[0].id); }).catch((err) => setError(err.message)); }, []);
+  useEffect(() => { if (!courseId) return; fetchApi<Analytics>(`/learning/courses/${courseId}/analytics`).then(setAnalytics).catch((err) => setError(err.message)); }, [courseId]);
+  const metrics = analytics ? [{ label: 'Average quiz accuracy', value: `${analytics.average_quiz_accuracy}%`, note: `${analytics.completed_quizzes} completed` }, { label: 'Cards ready to review', value: String(analytics.due_flashcards), note: `${analytics.total_flashcards} in this deck` }, { label: 'Levels mastered', value: `${analytics.mastered_nodes}/${analytics.total_nodes}`, note: '80% mastery unlocks progress' }] : [];
+  return <div className="app-shell"><Sidebar /><div className="page-content"><Header title="Analytics" /><main className="analytics-page"><div className="analytics-top"><div><p className="eyebrow">Learning signals</p><h2>See your progress clearly.</h2><p>Results come from your saved flashcard reviews and quiz attempts.</p></div><select className="course-select" value={courseId} onChange={(event) => setCourseId(event.target.value)}><option value="">Choose workspace</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}</select></div>{error && <p className="error-message">{error}</p>}{analytics ? <><section className="metrics">{metrics.map((metric) => <article className="metric panel" key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.note}</small></article>)}</section><section className="mastery panel"><div className="mastery-title"><div><p className="eyebrow">By learning level</p><h3>Mastery map</h3></div><span>{analytics.node_mastery.length} levels</span></div><div className="mastery-list">{analytics.node_mastery.map((node) => <div className="mastery-row" key={node.id}><div className="node-name"><span className={node.is_unlocked ? 'open' : ''}></span><strong>{node.title}</strong></div><div className="progress"><i style={{ width: `${node.mastery_score}%` }}></i></div><b>{Math.round(node.mastery_score)}%</b></div>)}</div></section></> : <section className="panel empty"><Icon name="grid" size={22} /><h3>Choose a workspace</h3><p>Your activity will appear here once you create a learning world and start studying.</p></section>}</main></div><style jsx>{`
+.analytics-page{padding:38px}.analytics-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:30px}.eyebrow{color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}.analytics-top h2{margin:6px 0 7px;font-size:29px;letter-spacing:-.045em}.analytics-top p:not(.eyebrow){color:var(--muted);font-size:14px}.course-select{min-width:220px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--foreground)}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}.metric{display:flex;flex-direction:column;gap:8px;padding:20px}.metric span,.metric small{color:var(--muted);font-size:12px}.metric strong{font-size:29px;letter-spacing:-.05em}.mastery{padding:24px}.mastery-title{display:flex;justify-content:space-between;align-items:center;padding-bottom:20px;border-bottom:1px solid var(--border)}.mastery-title h3{margin-top:5px;font-size:19px}.mastery-title>span{color:var(--muted);font-size:11px}.mastery-list{display:flex;flex-direction:column;gap:16px;padding-top:20px}.mastery-row{display:grid;grid-template-columns:minmax(160px,1fr) minmax(100px,2fr) 45px;gap:16px;align-items:center}.node-name{display:flex;align-items:center;gap:8px}.node-name span{width:8px;height:8px;border-radius:50%;background:var(--surface-muted)}.node-name span.open{background:var(--accent)}.node-name strong{font-size:13px}.progress{height:7px;overflow:hidden;border-radius:999px;background:var(--surface-muted)}.progress i{display:block;height:100%;border-radius:inherit;background:var(--accent)}.mastery-row b{font-size:12px;text-align:right}.empty{display:flex;flex-direction:column;align-items:center;gap:9px;margin:70px auto;padding:32px;max-width:440px;text-align:center;color:var(--accent)}.empty h3{color:var(--foreground);font-size:19px}.empty p{color:var(--muted);font-size:13px;line-height:1.55}.error-message{margin-bottom:12px;padding:10px 12px;border:1px solid #e7caca;border-radius:8px;color:var(--danger);font-size:12px}@media(max-width:700px){.analytics-page{padding:24px 16px}.analytics-top{flex-direction:column;gap:16px}.course-select{width:100%}.metrics{grid-template-columns:1fr}.mastery{padding:18px}.mastery-row{grid-template-columns:1fr 42px;gap:10px}.progress{grid-column:1/3;grid-row:2}.mastery-row b{grid-column:2;grid-row:1}}
+`}</style></div>;
 }

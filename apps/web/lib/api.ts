@@ -18,6 +18,12 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
   });
 
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== 'undefined') {
+      // Let the dashboard session gate clear stale credentials and return the
+      // learner to sign in. The event keeps the API client independent of the
+      // Next.js router.
+      window.dispatchEvent(new Event('questify:unauthorized'));
+    }
     const errorData = await response.json().catch(() => ({ detail: 'An error occurred' }));
     throw new Error(errorData.detail || `Request failed with status ${response.status}`);
   }

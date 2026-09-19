@@ -1,103 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import { Icon } from '@/components/Icon';
+import { fetchApi } from '@/lib/api';
+
+interface Course { id: string; title: string; }
+interface Question { prompt: string; options: string[]; answer_index: number; explanation: string; }
+interface Quiz { id: string; title: string; difficulty: string; questions_data: { questions: Question[] }; }
+interface Attempt { score: number; max_score: number; accuracy_percentage: number; xp_earned: number; }
 
 export default function QuizzesPage() {
-  const quiz = {
-    title: 'Adaptive Quiz: Process Scheduling & CPU Dispatch',
-    difficulty: 'Medium',
-    questions: [
-      {
-        id: 1,
-        question: 'Which CPU scheduling algorithm can suffer from the Convoy Effect?',
-        options: ['First-Come, First-Served (FCFS)', 'Shortest Job First (SJF)', 'Round Robin (RR)', 'Priority Scheduling'],
-        correctIndex: 0,
-        explanation: 'FCFS suffers from the Convoy Effect when short CPU-bound processes wait behind a long I/O-bound process.',
-      },
-    ],
-  };
-
-  const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [submitted, setSubmitted] = useState(false);
-
-  return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-main)' }}>
-      <Sidebar />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <Header title="Adaptive Quiz Interface" />
-
-        <main style={{ marginLeft: '260px', padding: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px' }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '700px', padding: '32px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-              <span style={{ fontSize: '13px', color: '#8B5CF6', fontWeight: '700' }}>Question 1 of 5</span>
-              <span className="badge-tier badge-gold">Difficulty: {quiz.difficulty}</span>
-            </div>
-
-            <h2 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '24px' }}>
-              {quiz.questions[0].question}
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
-              {quiz.questions[0].options.map((opt, idx) => {
-                const isSelected = selectedOption === idx;
-                const isCorrect = submitted && idx === quiz.questions[0].correctIndex;
-                const isWrong = submitted && isSelected && idx !== quiz.questions[0].correctIndex;
-
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => !submitted && setSelectedOption(idx)}
-                    style={{
-                      padding: '16px 20px',
-                      borderRadius: '12px',
-                      textAlign: 'left',
-                      background: isCorrect
-                        ? 'rgba(16, 185, 129, 0.2)'
-                        : isWrong
-                        ? 'rgba(244, 63, 94, 0.2)'
-                        : isSelected
-                        ? 'rgba(99, 102, 241, 0.25)'
-                        : 'rgba(255, 255, 255, 0.03)',
-                      border: isCorrect
-                        ? '1px solid #10B981'
-                        : isWrong
-                        ? '1px solid #F43F5E'
-                        : isSelected
-                        ? '1px solid #6366F1'
-                        : '1px solid rgba(255, 255, 255, 0.08)',
-                      color: '#FFF',
-                      fontSize: '14px',
-                      fontWeight: isSelected ? '600' : '400',
-                      cursor: submitted ? 'default' : 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    {opt}
-                  </button>
-                );
-              })}
-            </div>
-
-            {!submitted ? (
-              <button
-                disabled={selectedOption === null}
-                onClick={() => setSubmitted(true)}
-                className="gradient-btn"
-                style={{ width: '100%', opacity: selectedOption === null ? 0.5 : 1 }}
-              >
-                Submit Answer 🎯
-              </button>
-            ) : (
-              <div style={{ padding: '16px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10B981', color: '#F8FAFC' }}>
-                <div style={{ fontWeight: '700', marginBottom: '4px' }}>Correct! +25 XP Earned! ⚡</div>
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{quiz.questions[0].explanation}</div>
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
-    </div>
-  );
+  const [courses, setCourses] = useState<Course[]>([]); const [courseId, setCourseId] = useState(''); const [quizzes, setQuizzes] = useState<Quiz[]>([]); const [answers, setAnswers] = useState<number[]>([]); const [attempt, setAttempt] = useState<Attempt | null>(null); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  useEffect(() => { fetchApi<Course[]>('/courses').then((items) => { setCourses(items); if (items.length) setCourseId(items[0].id); }).catch((err) => setError(err.message)); }, []);
+  useEffect(() => { if (!courseId) return; setAttempt(null); setAnswers([]); fetchApi<Quiz[]>(`/learning/courses/${courseId}/quizzes`).then(setQuizzes).catch((err) => setError(err.message)); }, [courseId]);
+  const quiz = quizzes[0]; const questions = quiz?.questions_data.questions || [];
+  const choose = (questionIndex: number, optionIndex: number) => setAnswers((current) => { const next = [...current]; next[questionIndex] = optionIndex; return next; });
+  const submit = async () => { if (!quiz || answers.length !== questions.length || answers.some((answer) => answer === undefined)) return; setBusy(true); setError(''); try { setAttempt(await fetchApi<Attempt>(`/learning/quizzes/${quiz.id}/attempts`, { method: 'POST', body: JSON.stringify({ answers }) })); } catch (err) { setError(err instanceof Error ? err.message : 'Could not submit quiz.'); } finally { setBusy(false); } };
+  return <div className="app-shell"><Sidebar /><div className="page-content"><Header title="Quizzes" /><main className="quiz-page"><div className="quiz-top"><div><p className="eyebrow">Knowledge check</p><h2>See what has stuck.</h2></div><select className="course-select" value={courseId} onChange={(event) => setCourseId(event.target.value)}><option value="">Choose workspace</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}</select></div>{error && <p className="error-message">{error}</p>}{quiz ? <section className="quiz-card"><header><div><span className="eyebrow">{quiz.difficulty}</span><h3>{quiz.title}</h3></div><span className="question-count">{questions.length} questions</span></header>{questions.map((question, questionIndex) => <div className="question" key={question.prompt}><p><span>{questionIndex + 1}</span>{question.prompt}</p><div className="options">{question.options.map((option, optionIndex) => { const selected = answers[questionIndex] === optionIndex; const correct = attempt && optionIndex === question.answer_index; const wrong = attempt && selected && !correct; return <button key={option} type="button" disabled={Boolean(attempt)} onClick={() => choose(questionIndex, optionIndex)} className={`${selected ? 'selected' : ''} ${correct ? 'correct' : ''} ${wrong ? 'wrong' : ''}`}><i>{String.fromCharCode(65 + optionIndex)}</i>{option}</button>; })}</div>{attempt && <p className="explanation">{question.explanation}</p>}</div>)}{attempt ? <div className="attempt-result"><strong>{attempt.score} / {attempt.max_score} correct</strong><span>{attempt.accuracy_percentage}% accuracy · +{attempt.xp_earned} XP</span><button className="btn" onClick={() => { setAttempt(null); setAnswers([]); }}>Try again</button></div> : <button className="btn btn-primary submit" disabled={busy || answers.length !== questions.length} onClick={submit}>{busy ? 'Checking…' : 'Check answers'} <Icon name="arrowUp" size={15} /></button>}</section> : <section className="panel empty"><Icon name="target" size={22} /><h3>No quiz yet</h3><p>Generate a learning world to create a foundations quiz for this workspace.</p></section>}</main></div><style jsx>{`
+.quiz-page{max-width:850px;margin:0 auto;padding:38px}.quiz-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px}.eyebrow{color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}.quiz-top h2{margin-top:6px;font-size:29px;letter-spacing:-.045em}.course-select{min-width:220px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--foreground)}.quiz-card{padding:28px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}.quiz-card header{display:flex;justify-content:space-between;gap:15px;padding-bottom:22px;border-bottom:1px solid var(--border)}.quiz-card h3{margin-top:6px;font-size:20px}.question-count{height:max-content;padding:5px 8px;border-radius:999px;background:var(--surface-muted);color:var(--muted);font-size:11px}.question{padding:24px 0;border-bottom:1px solid var(--border)}.question>p:first-child{display:flex;gap:10px;font-size:15px;font-weight:600;line-height:1.5}.question>p:first-child span{display:grid;place-items:center;flex:0 0 auto;width:21px;height:21px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-size:10px}.options{display:grid;gap:8px;margin:15px 0 0 31px}.options button{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--foreground);font-size:13px;text-align:left}.options button:hover:not(:disabled),.options button.selected{border-color:#9ab8a8;background:var(--accent-soft)}.options button.correct{border-color:#75a98a;background:#eaf5ed}.options button.wrong{border-color:#d99595;background:#fff0f0}.options i{display:grid;place-items:center;width:20px;height:20px;border:1px solid currentColor;border-radius:50%;font-size:10px;font-style:normal}.explanation{margin:13px 0 0 31px;color:var(--muted);font-size:12px;line-height:1.55}.submit{margin-top:24px;width:100%}.attempt-result{display:flex;align-items:center;gap:12px;margin-top:24px;padding:15px;border:1px solid #b9d5c3;border-radius:10px;background:var(--accent-soft)}.attempt-result strong{font-size:15px}.attempt-result span{flex:1;color:var(--accent);font-size:12px}.empty{display:flex;flex-direction:column;align-items:center;gap:9px;margin:70px auto;padding:32px;max-width:440px;text-align:center;color:var(--accent)}.empty h3{color:var(--foreground);font-size:19px}.empty p{color:var(--muted);font-size:13px;line-height:1.55}.error-message{margin-bottom:12px;padding:10px 12px;border:1px solid #e7caca;border-radius:8px;color:var(--danger);font-size:12px}@media(max-width:700px){.quiz-page{padding:24px 16px}.quiz-top{flex-direction:column;gap:16px}.course-select{width:100%}.quiz-card{padding:18px}.quiz-card header{flex-direction:column}.options{margin-left:0}.explanation{margin-left:0}.attempt-result{align-items:flex-start;flex-direction:column}.attempt-result .btn{width:100%}}
+`}</style></div>;
 }
