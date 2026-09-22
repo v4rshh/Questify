@@ -103,6 +103,47 @@ class KnowledgeEdge(Base):
     relationship_type: Mapped[str] = mapped_column(String(50), default="prerequisite")  # prerequisite, related, part_of
 
 
+class ResourceWorld(Base):
+    __tablename__ = "resource_worlds"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    material_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("materials.id"), unique=True, nullable=False)
+    course_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("courses.id"), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    world_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class LevelGame(Base):
+    __tablename__ = "level_games"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    node_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("knowledge_nodes.id"), unique=True, nullable=False)
+    world_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("resource_worlds.id"), nullable=False)
+    difficulty: Mapped[str] = mapped_column(String(30), nullable=False)
+    lesson: Mapped[str] = mapped_column(Text, nullable=False)
+    questions: Mapped[list] = mapped_column(JSON, nullable=False)
+    solved_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class WorldGenerationJob(Base):
+    __tablename__ = "world_generation_jobs"
+
+    material_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("materials.id"), primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="queued", nullable=False)
+    progress: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    message: Mapped[str] = mapped_column(Text, default="Queued", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class WorldCurriculumAudit(Base):
+    __tablename__ = "world_curriculum_audits"
+
+    world_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("resource_worlds.id"), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+
 class Flashcard(Base):
     __tablename__ = "flashcards"
     

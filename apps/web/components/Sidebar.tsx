@@ -1,141 +1,187 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import {
+  Sidebar as ShadcnSidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarTrigger,
+} from '@/components/ui/sidebar';
+import { Icon } from './Icon';
+import ThemeToggle from './ThemeToggle';
 
-interface NavItem {
-  label: string;
-  href: string;
-  icon: string;
-  badge?: string;
-  role?: string;
+export interface ChatThread {
+  id: string;
+  title: string;
+  courseId?: string;
+  materialId?: string;
+  resourceReady?: boolean;
+  worldTitle?: string;
 }
 
-const navItems: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: '⚡' },
-  { label: 'Learning Roadmap', href: '/roadmap', icon: '🗺️' },
-  { label: 'AI Tutor Chat', href: '/tutor', icon: '🤖', badge: 'AI' },
-  { label: 'Flashcards', href: '/flashcards', icon: '🎴' },
-  { label: 'Adaptive Quizzes', href: '/quizzes', icon: '🎯' },
-  { label: 'Analytics', href: '/analytics', icon: '📊' },
-  { label: 'Leaderboard', href: '/leaderboard', icon: '🏆' },
-  { label: 'Admin Console', href: '/admin', icon: '⚙️', role: 'admin' },
+const navItems = [
+  { label: 'Dashboard', href: '/dashboard', icon: 'grid' as const },
+  { label: 'Flashcards', href: '/flashcards', icon: 'bookOpen' as const },
+  { label: 'Quizzes', href: '/quizzes', icon: 'target' as const },
+  { label: 'Analytics', href: '/analytics', icon: 'search' as const },
 ];
 
-export default function Sidebar({ userRole }: { userRole?: string }) {
+interface SidebarProps {
+  threads?: ChatThread[];
+  activeThreadId?: string;
+  onNewChat?: () => void;
+  onSelectThread?: (id: string) => void;
+  canCreateWorld?: boolean;
+  isCreatingWorld?: boolean;
+  onCreateWorld?: () => void;
+}
+
+export default function Sidebar({
+  threads = [],
+  activeThreadId,
+  onNewChat,
+  onSelectThread,
+  canCreateWorld = false,
+  isCreatingWorld = false,
+  onCreateWorld,
+}: SidebarProps) {
   const pathname = usePathname();
+  const [open, setOpen] = useState(true);
+
+  useEffect(() => {
+    const savedOpen = localStorage.getItem('questify_sidebar_collapsed') !== 'true';
+    setOpen(savedOpen);
+    document.documentElement.dataset.sidebarCollapsed = String(!savedOpen);
+  }, []);
+
+  const setSidebarOpen = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    document.documentElement.dataset.sidebarCollapsed = String(!nextOpen);
+    localStorage.setItem('questify_sidebar_collapsed', String(!nextOpen));
+  };
 
   return (
-    <aside style={{
-      width: '260px',
-      background: 'rgba(15, 23, 42, 0.95)',
-      backdropFilter: 'blur(20px)',
-      borderRight: '1px solid rgba(255, 255, 255, 0.08)',
-      height: '100vh',
-      position: 'fixed',
-      left: 0,
-      top: 0,
-      display: 'flex',
-      flexDirection: 'column',
-      zIndex: 50,
-      padding: '24px 16px'
-    }}>
-      {/* Brand Logo */}
-      <Link href="/dashboard" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px', paddingLeft: '8px' }}>
-        <div style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '12px',
-          background: 'linear-gradient(135deg, #6366F1, #D946EF)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '20px',
-          fontWeight: 'bold',
-          color: '#fff',
-          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.4)'
-        }}>
-          Q
-        </div>
-        <div>
-          <span style={{ fontSize: '22px', fontWeight: '800', letterSpacing: '-0.5px' }} className="gradient-text">
-            Questify
-          </span>
-          <span style={{ display: 'block', fontSize: '10px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '1px' }}>
-            AI Learning Realm
-          </span>
-        </div>
-      </Link>
-
-      {/* Navigation List */}
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-        {navItems.map((item) => {
-          if (item.role === 'admin' && userRole !== 'admin') return null;
-          const isActive = pathname === item.href;
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '12px 16px',
-                borderRadius: '12px',
-                color: isActive ? '#FFFFFF' : '#94A3B8',
-                background: isActive ? 'linear-gradient(90deg, rgba(99, 102, 241, 0.25) 0%, rgba(139, 92, 246, 0.15) 100%)' : 'transparent',
-                borderLeft: isActive ? '3px solid #6366F1' : '3px solid transparent',
-                textDecoration: 'none',
-                fontWeight: isActive ? '600' : '500',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '18px' }}>{item.icon}</span>
-                <span style={{ fontSize: '14px' }}>{item.label}</span>
-              </div>
-              {item.badge && (
-                <span style={{
-                  background: 'linear-gradient(135deg, #6366F1, #D946EF)',
-                  color: '#fff',
-                  fontSize: '10px',
-                  fontWeight: '700',
-                  padding: '2px 6px',
-                  borderRadius: '6px'
-                }}>
-                  {item.badge}
-                </span>
-              )}
+    <SidebarProvider open={open} onOpenChange={setSidebarOpen} className="questify-sidebar-provider">
+      <ShadcnSidebar collapsible="icon" className="questify-shadcn-sidebar">
+        <SidebarHeader className="border-b border-sidebar-border p-2">
+          <div className="flex items-center gap-2">
+            <Link href="/dashboard" className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1.5 text-sidebar-foreground no-underline">
+              <span className="grid size-8 shrink-0 place-items-center rounded-md bg-sidebar-primary font-serif text-lg font-semibold text-sidebar-primary-foreground">Q</span>
+              <span className="min-w-0 group-data-[collapsible=icon]:hidden">
+                <strong className="block truncate text-sm font-semibold tracking-tight">Questify</strong>
+                <small className="block truncate text-[10px] text-sidebar-foreground/65">Study workspace</small>
+              </span>
             </Link>
-          );
-        })}
-      </nav>
-
-      {/* User Quick Info */}
-      <div className="glass-card" style={{ padding: '14px', marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div style={{
-          width: '38px',
-          height: '38px',
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, #10B981, #06B6D4)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontWeight: '700',
-          fontSize: '16px'
-        }}>
-          👤
-        </div>
-        <div style={{ flex: 1, overflow: 'hidden' }}>
-          <div style={{ fontSize: '13px', fontWeight: '600', color: '#F8FAFC', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-            Learner Account
+            <button type="button" className="grid size-7 shrink-0 place-items-center rounded-md border-0 bg-transparent text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:hidden" onClick={() => setSidebarOpen(false)} aria-label="Collapse sidebar" title="Collapse sidebar (Ctrl+B)">
+              <Icon name="chevronLeft" size={16} />
+            </button>
           </div>
-          <span className="badge-tier badge-gold" style={{ fontSize: '9px', padding: '1px 6px' }}>
-            Gold Tier
-          </span>
-        </div>
-      </div>
-    </aside>
+        </SidebarHeader>
+
+        <SidebarContent className="gap-0 px-2 py-3">
+          <SidebarGroup className="p-0">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                {onNewChat ? (
+                  <SidebarMenuButton onClick={onNewChat} tooltip="New chat" variant="outline" className="mb-1.5 h-10 border-sidebar-border bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90 hover:text-sidebar-primary-foreground data-[active=true]:bg-sidebar-primary">
+                    <Icon name="plus" size={17} />
+                    <span>New chat</span>
+                  </SidebarMenuButton>
+                ) : (
+                  <SidebarMenuButton asChild tooltip="New chat" variant="outline" className="mb-1.5 h-10 border-sidebar-border bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90 hover:text-sidebar-primary-foreground">
+                    <Link href="/dashboard"><Icon name="plus" size={17} /><span>New chat</span></Link>
+                  </SidebarMenuButton>
+                )}
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={onCreateWorld} disabled={!canCreateWorld || isCreatingWorld} tooltip={canCreateWorld ? 'Create learning world' : 'Upload a resource first'} className="h-9 border border-dashed border-sidebar-border text-sidebar-foreground hover:border-sidebar-primary hover:bg-sidebar-accent">
+                  <Icon name="sparkles" size={16} />
+                  <span>{isCreatingWorld ? 'Creating world…' : 'Create world'}</span>
+                  <small className="ml-auto text-[10px] text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">{canCreateWorld ? 'Ready' : 'Upload'}</small>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+
+          <SidebarGroup className="mt-4 p-0">
+            <SidebarGroupLabel className="px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/55">Workspace</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navItems.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
+                      <Link href={item.href} aria-current={pathname === item.href ? 'page' : undefined}>
+                        <Icon name={item.icon} size={17} />
+                        <span>{item.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {onSelectThread && (
+            <SidebarGroup className="mt-4 min-h-0 flex-1 p-0">
+              <SidebarGroupLabel className="px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/55">Recent chats</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {threads.length ? threads.map((thread) => (
+                    <SidebarMenuItem key={thread.id}>
+                      <SidebarMenuButton onClick={() => onSelectThread(thread.id)} isActive={activeThreadId === thread.id} tooltip={thread.title}>
+                        <Icon name="message" size={16} />
+                        <span>{thread.title}</span>
+                      </SidebarMenuButton>
+                      {thread.worldTitle && (
+                        <SidebarMenuSub>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild>
+                              <Link href={`/roadmap?course=${thread.courseId || ''}&material=${thread.materialId || ''}`} title={thread.worldTitle}>
+                                <Icon name="library" size={14} />
+                                <span>{thread.worldTitle}</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        </SidebarMenuSub>
+                      )}
+                    </SidebarMenuItem>
+                  )) : <p className="px-2 py-2 text-xs leading-5 text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">Your chats will appear here.</p>}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
+        </SidebarContent>
+
+        <SidebarFooter className="border-t border-sidebar-border p-2">
+          <ThemeToggle />
+          <SidebarMenu className="mt-1">
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="My workspace">
+                <Link href="/dashboard">
+                  <span className="grid size-5 shrink-0 place-items-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground"><Icon name="user" size={13} /></span>
+                  <span className="group-data-[collapsible=icon]:hidden"><strong className="block text-xs font-medium">My workspace</strong><small className="block text-[10px] text-sidebar-foreground/55">Personal learning</small></span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+        <SidebarRail />
+      </ShadcnSidebar>
+      <SidebarTrigger className="questify-mobile-sidebar-trigger fixed bottom-4 left-4 z-40 border border-sidebar-border bg-sidebar text-sidebar-foreground shadow-md md:hidden" />
+    </SidebarProvider>
   );
 }

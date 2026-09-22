@@ -21,6 +21,8 @@ class RagState(TypedDict, total=False):
     relevant_chunks: list[RetrievedChunk]
     answer: str
     citations: list[dict]
+    has_indexed_material: bool
+    grounded: bool
 
 
 def _rewrite(state: RagState) -> dict:
@@ -88,10 +90,26 @@ def _retry(state: RagState) -> dict:
 def _generate(state: RagState) -> dict:
     chunks = state.get("relevant_chunks", [])
     if not chunks:
-        return {
-            "answer": "I couldn't find information about that in the selected course materials. Try rephrasing the question or upload a relevant document.",
-            "citations": [],
-        }
+        if state.get("has_indexed_material"):
+            return {
+                "answer": "I couldn't find support for that in the indexed resources for this workspace. Try asking in a different way, or upload material that covers the topic.",
+                "citations": [],
+                "grounded": False,
+            }
+        # Keep the empty workspace useful for general questions. Once a
+        # learner uploads a resource, only the grounded branch below is used.
+        answer = chat_completion(
+            [
+                {
+                    "role": "system",
+                    "content": "You are the Questify study tutor. Answer the learner clearly and briefly. No course material is attached yet, so answer from general knowledge and invite the learner to upload notes when a source-grounded answer would help.",
+                },
+                {"role": "user", "content": state["question"]},
+            ],
+            temperature=0.3,
+            max_tokens=900,
+        )
+        return {"answer": answer, "citations": [], "grounded": False}
 
     context_parts = []
     citations = []
@@ -114,7 +132,7 @@ If the excerpts do not support an answer, say so. Explain clearly and concisely.
         temperature=0.2,
         max_tokens=1400,
     )
-    return {"answer": answer, "citations": citations}
+    return {"answer": answer, "citations": citations, "grounded": True}
 
 
 def _build_graph():
@@ -136,7 +154,13 @@ def _build_graph():
 rag_workflow = _build_graph()
 
 
-def answer_course_question(*, question: str, user_id: str, course_id: str) -> dict:
+def answer_course_question(
+    *,
+    question: str,
+    user_id: str,
+    course_id: str,
+    has_indexed_material: bool,
+) -> dict:
     return rag_workflow.invoke(
         {
             "question": question,
@@ -148,5 +172,7 @@ def answer_course_question(*, question: str, user_id: str, course_id: str) -> di
             "relevant_chunks": [],
             "answer": "",
             "citations": [],
+            "has_indexed_material": has_indexed_material,
+            "grounded": False,
         }
     )

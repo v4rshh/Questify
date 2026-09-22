@@ -22,12 +22,13 @@ def register_user(payload: UserCreate, db: Session = Depends(get_db)):
             detail="User with this email already exists"
         )
     
-    # First user can be assigned admin if requested or defaulted
+    # Questify is a learner workspace. Administrative roles are internal and
+    # cannot be selected during public registration.
     user = User(
         email=payload.email,
         hashed_password=get_password_hash(payload.password),
         full_name=payload.full_name,
-        role=payload.role if payload.role in [r.value for r in UserRole] else UserRole.STUDENT.value,
+        role=UserRole.STUDENT.value,
         xp=100,  # Welcome bonus
         streak_count=1,
         last_active_date=datetime.now(timezone.utc)

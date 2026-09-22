@@ -1,75 +1,41 @@
 'use client';
 
-interface HeaderProps {
-  title: string;
-  userXp?: number;
-  streakCount?: number;
-  masteryTier?: string;
-}
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { Icon } from './Icon';
+import { fetchApi } from '@/lib/api';
 
-export default function Header({
-  title,
-  userXp = 450,
-  streakCount = 5,
-  masteryTier = 'Gold'
-}: HeaderProps) {
-  const tierClass = `badge-${masteryTier.toLowerCase()}`;
+interface HeaderProps { title: string; userXp?: number; streakCount?: number; masteryTier?: string; }
+
+export default function Header({ title, userXp = 0, streakCount = 0, masteryTier = 'Bronze' }: HeaderProps) {
+  const [metrics, setMetrics] = useState({ xp: userXp, streak: streakCount, tier: masteryTier });
+
+  useEffect(() => {
+    fetchApi<{ xp: number; streak_count: number; mastery_tier: string }>('/gamification/dashboard')
+      .then((data) => setMetrics({ xp: data.xp, streak: data.streak_count, tier: data.mastery_tier }))
+      .catch(() => undefined);
+  }, []);
 
   return (
-    <header style={{
-      height: '70px',
-      marginLeft: '260px',
-      background: 'rgba(15, 23, 42, 0.8)',
-      backdropFilter: 'blur(16px)',
-      borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      padding: '0 32px',
-      position: 'sticky',
-      top: 0,
-      zIndex: 40
-    }}>
-      <h1 style={{ fontSize: '20px', fontWeight: '700', color: '#F8FAFC' }}>
-        {title}
-      </h1>
-
-      {/* Gamification Bar Header Metrics */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-        {/* Streak Counter */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          background: 'rgba(245, 158, 11, 0.15)',
-          border: '1px solid rgba(245, 158, 11, 0.3)',
-          padding: '6px 14px',
-          borderRadius: '20px'
-        }}>
-          <span style={{ fontSize: '16px' }}>🔥</span>
-          <span style={{ fontWeight: '700', color: '#F59E0B', fontSize: '14px' }}>
-            {streakCount} Day Streak
-          </span>
-        </div>
-
-        {/* XP Progress Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-            <span style={{ fontSize: '12px', fontWeight: '700', color: '#8B5CF6' }}>
-              ⚡ {userXp} XP
-            </span>
-            <span style={{ fontSize: '10px', color: '#94A3B8' }}>Lvl 4 Scholar</span>
-          </div>
-          <div style={{ width: '80px', height: '8px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-            <div style={{ width: `${(userXp % 200) / 2}%`, height: '100%', background: 'linear-gradient(90deg, #6366F1, #D946EF)', borderRadius: '4px' }} />
-          </div>
-        </div>
-
-        {/* Tier Badge */}
-        <span className={`badge-tier ${tierClass}`}>
-          🛡️ {masteryTier}
-        </span>
+    <header className="questify-header">
+      <div><div className="header-eyebrow">Workspace</div><h1>{title}</h1></div>
+      <div className="header-metrics">
+        <span className="metric"><Icon name="flame" size={15} /> {metrics.streak} day streak</span>
+        <span className="metric"><Icon name="sparkles" size={15} /> {metrics.xp} XP</span>
+        <span className="tier-pill">{metrics.tier}</span>
+        <Link href="/dashboard" className="header-avatar"><Icon name="user" size={16} /></Link>
       </div>
+      <style jsx>{`
+        .questify-header { height: 72px; display: flex; align-items: center; justify-content: space-between; padding: 0 34px; border-bottom: 1px solid var(--border); background: var(--surface); }
+        .header-eyebrow { color: var(--muted); font-size: 11px; margin-bottom: 3px; }
+        h1 { font-size: 20px; line-height: 1; font-weight: 700; }
+        .header-metrics { display: flex; align-items: center; gap: 16px; }
+        .metric { display: inline-flex; align-items: center; gap: 6px; color: var(--muted-strong); font-size: 12px; }
+        .metric:first-child { color: var(--warm); }
+        .tier-pill { padding: 5px 9px; border: 1px solid #d8d8d1; border-radius: 999px; color: var(--muted-strong); font-size: 11px; font-weight: 600; }
+        .header-avatar { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); text-decoration: none; }
+        @media (max-width: 900px) { .questify-header { margin-left: 0; padding: 0 18px; } .header-metrics .metric, .tier-pill { display: none; } }
+      `}</style>
     </header>
   );
 }

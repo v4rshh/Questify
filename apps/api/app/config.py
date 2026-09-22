@@ -1,4 +1,14 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+# Docker Compose owns the repository-level .env file, while a local Uvicorn
+# session is usually started from apps/api. Read both explicitly so a key added
+# to the documented root .env is available in either workflow. The API-local
+# file comes second to preserve its SQLite development defaults.
+API_DIRECTORY = Path(__file__).resolve().parent.parent
+REPOSITORY_DIRECTORY = API_DIRECTORY.parents[1]
 
 
 class Settings(BaseSettings):
@@ -25,6 +35,10 @@ class Settings(BaseSettings):
     upload_directory: str = "./data/uploads"
     max_upload_size_mb: int = 25
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=(REPOSITORY_DIRECTORY / ".env", API_DIRECTORY / ".env"),
+        env_ignore_empty=True,
+        extra="ignore",
+    )
 
 settings = Settings()
