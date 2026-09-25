@@ -9,11 +9,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...database import get_db
-from ...models import Course, Flashcard, KnowledgeNode, Material, Quiz, QuizAttempt, User, ResourceWorld, LevelGame, WorldCurriculumAudit, WorldGenerationJob
+from ...models import (Course, Flashcard, KnowledgeNode, Material, Quiz, QuizAttempt,
+                       User, ResourceWorld, LevelGame, WorldCurriculumAudit,
+                       WorldGenerationJob, UserAdventureState, LevelAdventureProgress)
 from ...services.curriculum import generate_curriculum
 from ...schemas import (
     WorldGenerateRequest,
     GameAnswerRequest,
+    WorldRetryRequest,
     CourseAnalyticsRead,
     FlashcardRead,
     FlashcardReviewCreate,
@@ -176,20 +179,41 @@ def _owned_game(db, node_id, user_id):
     return node, game
 
 
-def _game_read(node, game):
+def _adventure_progress(db, user_id, node_id, create=False):
+    progress = db.scalar(select(LevelAdventureProgress).where(
+        LevelAdventureProgress.user_id == user_id,
+        LevelAdventureProgress.node_id == node_id,
+    ))
+    if not progress and create:
+        progress = LevelAdventureProgress(user_id=user_id, node_id=node_id)
+        db.add(progress)
+        db.flush()
+    return progress
+
+
+def _game_read(node, game, progress=None):
     question = game.questions[game.solved_count] if game.solved_count < len(game.questions) else None
     return {
         "node_id": str(node.id), "title": node.title, "difficulty": game.difficulty,
         "lesson": game.lesson, "solved_count": game.solved_count, "total": len(game.questions),
         "points": game.solved_count * 10, "completed": question is None,
-        "question": {key: question[key] for key in ("prompt", "options", "source", "page")} if question else None,
+        "question": ({key: question.get(key) for key in ("prompt", "options", "source", "page")} | {
+            "hint": question.get("hint") or f"Think about the core idea behind {node.title}."
+        }) if question else None,
+        "adventure": {
+            "mistakes": progress.mistakes if progress else [],
+            "correct_answers": progress.correct_answers if progress else [],
+            "level_reward_claimed": progress.level_reward_claimed if progress else False,
+            "treasure_claimed": progress.treasure_claimed if progress else False,
+        },
     }
 
 
 @router.get("/levels/{node_id}/game")
 def get_game(node_id: UUID, db: Session = Depends(get_db),
              current_user: User = Depends(get_current_user)):
-    return _game_read(*_owned_game(db, node_id, current_user.id))
+    node, game = _owned_game(db, node_id, current_user.id)
+    return _game_read(node, game, _adventure_progress(db, current_user.id, node_id))
 
 
 @router.post("/levels/{node_id}/game/answer")
@@ -200,6 +224,13 @@ def answer_game(node_id: UUID, payload: GameAnswerRequest, db: Session = Depends
         raise HTTPException(409, "This challenge was already answered. Reload the level to continue.")
     question = game.questions[game.solved_count]
     correct = payload.answer_index == question["answer_index"]
+    progress = _adventure_progress(db, current_user.id, node_id, create=True)
+    answer_record = {
+        "question": question["prompt"],
+        "answer": question["options"][payload.answer_index],
+        "correct_answer": question["options"][question["answer_index"]],
+        "concept": node.title,
+    }
     if correct:
         # Compare-and-swap prevents duplicate clicks or retries from earning XP twice.
         changed = db.execute(update(LevelGame).where(
@@ -209,6 +240,7 @@ def answer_game(node_id: UUID, payload: GameAnswerRequest, db: Session = Depends
             db.rollback()
             raise HTTPException(409, "This challenge was already answered. Reload the level.")
         db.execute(update(User).where(User.id == current_user.id).values(xp=User.xp + 10))
+        progress.correct_answers = [*progress.correct_answers, answer_record]
         node.mastery_score = (payload.question_index + 1) / len(game.questions) * 100
         if payload.question_index + 1 == len(game.questions):
             next_node = db.scalar(select(KnowledgeNode).join(LevelGame).where(
@@ -219,10 +251,83 @@ def answer_game(node_id: UUID, payload: GameAnswerRequest, db: Session = Depends
         db.commit()
         db.refresh(game)
         db.refresh(current_user)
+    else:
+        progress.mistakes = [*progress.mistakes, answer_record]
+        db.commit()
     return {"correct": correct, "explanation": question["explanation"],
             "correct_answer": question["options"][question["answer_index"]],
             "xp_earned": 10 if correct else 0, "total_xp": current_user.xp,
-            "game": _game_read(node, game)}
+            "game": _game_read(node, game, progress)}
+
+
+def _adventure_state(db, user_id):
+    state = db.get(UserAdventureState, user_id)
+    if not state:
+        state = UserAdventureState(user_id=user_id, gems=0)
+        db.add(state)
+        db.flush()
+    return state
+
+
+@router.post("/levels/{node_id}/reward")
+def claim_level_reward(node_id: UUID, db: Session = Depends(get_db),
+                       current_user: User = Depends(get_current_user)):
+    node, game = _owned_game(db, node_id, current_user.id)
+    if game.solved_count < len(game.questions):
+        raise HTTPException(409, "Finish every question before claiming this milestone")
+    progress = _adventure_progress(db, current_user.id, node_id, create=True)
+    state = _adventure_state(db, current_user.id)
+    xp_gained = gems_gained = 0
+    if not progress.level_reward_claimed:
+        progress.level_reward_claimed = True
+        current_user.xp += 25
+        state.gems += 10
+        xp_gained, gems_gained = 25, 10
+        db.commit()
+    return {"xp_gained": xp_gained, "gems_gained": gems_gained,
+            "total_xp": current_user.xp, "total_gems": state.gems,
+            "claimed": progress.level_reward_claimed}
+
+
+@router.post("/levels/{node_id}/treasure")
+def claim_treasure(node_id: UUID, db: Session = Depends(get_db),
+                   current_user: User = Depends(get_current_user)):
+    node, _ = _owned_game(db, node_id, current_user.id)
+    progress = _adventure_progress(db, current_user.id, node_id, create=True)
+    state = _adventure_state(db, current_user.id)
+    xp_gained = gems_gained = 0
+    if not progress.treasure_claimed:
+        progress.treasure_claimed = True
+        current_user.xp += 15
+        state.gems += 5
+        xp_gained, gems_gained = 15, 5
+        db.commit()
+    return {"xp_gained": xp_gained, "gems_gained": gems_gained,
+            "total_xp": current_user.xp, "total_gems": state.gems,
+            "claimed": progress.treasure_claimed}
+
+
+@router.post("/world/retry")
+def retry_world(payload: WorldRetryRequest, db: Session = Depends(get_db),
+                current_user: User = Depends(get_current_user)):
+    nodes = [db.get(KnowledgeNode, node_id) for node_id in payload.node_ids]
+    if any(node is None for node in nodes):
+        raise HTTPException(404, "One or more levels were not found")
+    for node in nodes:
+        _owned_course(db, node.course_id, current_user.id)
+    for index, node in enumerate(nodes):
+        game = db.scalar(select(LevelGame).where(LevelGame.node_id == node.id))
+        if game:
+            game.solved_count = 0
+        node.mastery_score = 0
+        node.is_unlocked = index == 0
+        progress = _adventure_progress(db, current_user.id, node.id)
+        if progress:
+            progress.mistakes = []
+            progress.correct_answers = []
+            # Claimed rewards remain claimed so retrying cannot mint currency.
+    db.commit()
+    return {"reset": len(nodes), "first_node_id": str(nodes[0].id)}
 
 
 @router.get("/courses/{course_id}/flashcards", response_model=list[FlashcardRead])

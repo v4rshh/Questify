@@ -7,8 +7,8 @@ from sqlalchemy import create_engine, select, func
 from sqlalchemy.orm import Session
 
 from app.database import Base
-from app.models import User, Course, Material, ResourceWorld, LevelGame, Flashcard
-from app.api.v1.learning import generate_world, get_game, answer_game, start_generation, generation_status
+from app.models import User, Course, Material, ResourceWorld, LevelGame, Flashcard, UserAdventureState, LevelAdventureProgress
+from app.api.v1.learning import generate_world, get_game, answer_game, claim_level_reward, claim_treasure, start_generation, generation_status
 from app.models import WorldGenerationJob
 from app.schemas import WorldGenerateRequest, GameAnswerRequest
 from app.services.curriculum import Curriculum
@@ -81,6 +81,24 @@ class WorldTests(unittest.TestCase):
         self.assertEqual(get_game(second.id, self.db, self.user)["solved_count"], 0)
         self.db.expire_all()
         self.assertTrue(get_game(first.id, self.db, self.user)["completed"])
+
+    def test_adventure_rewards_and_mistakes_are_persistent_and_idempotent(self):
+        world = self.generate(self.design)
+        first = world.nodes[0]
+        wrong = answer_game(first.id, GameAnswerRequest(question_index=0, answer_index=2), self.db, self.user)
+        self.assertEqual(len(wrong["game"]["adventure"]["mistakes"]), 1)
+        for index in range(3):
+            answer_game(first.id, GameAnswerRequest(question_index=index, answer_index=0), self.db, self.user)
+        reward = claim_level_reward(first.id, self.db, self.user)
+        self.assertEqual((reward["xp_gained"], reward["gems_gained"]), (25, 10))
+        duplicate = claim_level_reward(first.id, self.db, self.user)
+        self.assertEqual((duplicate["xp_gained"], duplicate["gems_gained"]), (0, 0))
+        treasure = claim_treasure(first.id, self.db, self.user)
+        self.assertEqual((treasure["xp_gained"], treasure["gems_gained"]), (15, 5))
+        self.assertEqual(self.db.get(UserAdventureState, self.user.id).gems, 15)
+        progress = self.db.scalar(select(LevelAdventureProgress).where(LevelAdventureProgress.node_id == first.id))
+        self.assertTrue(progress.level_reward_claimed)
+        self.assertTrue(progress.treasure_claimed)
 
     def test_ownership_and_failed_generation(self):
         world = self.generate(self.ai)

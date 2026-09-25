@@ -3,7 +3,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from ...database import get_db
-from ...models import User, Course, QuizAttempt, Quest, Achievement
+from ...models import User, Course, QuizAttempt, Quest, Achievement, UserAdventureState
 from ...schemas import GamificationDashboardRead, QuestRead, AchievementRead
 from ..deps import get_current_user
 
@@ -36,8 +36,10 @@ def get_gamification_dashboard(
         .limit(5)
     ).all()
 
+    adventure = db.get(UserAdventureState, current_user.id)
     return GamificationDashboardRead(
         xp=current_user.xp,
+        gems=adventure.gems if adventure else 0,
         streak_count=current_user.streak_count,
         mastery_tier=current_user.mastery_tier,
         total_courses=total_courses,

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from sqlalchemy import DateTime, ForeignKey, String, Text, Integer, Boolean, Float, JSON, Uuid as UUID, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, Integer, Boolean, Float, JSON, Uuid as UUID, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -44,6 +44,49 @@ class User(Base):
     quests: Mapped[list["Quest"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     achievements: Mapped[list["Achievement"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     quiz_attempts: Mapped[list["QuizAttempt"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class UserAdventureState(Base):
+    """Adventure-only currency kept separate from the legacy user table.
+
+    A separate table lets existing prototype databases pick up the feature via
+    ``create_all`` without requiring an in-place column migration.
+    """
+
+    __tablename__ = "user_adventure_states"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    gems: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+
+class LevelAdventureProgress(Base):
+    """Per-learner story progress layered on top of the existing level game."""
+
+    __tablename__ = "level_adventure_progress"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    node_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("knowledge_nodes.id", ondelete="CASCADE"), nullable=False)
+    mistakes: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    correct_answers: Mapped[list] = mapped_column(JSON, default=list, nullable=False)
+    level_reward_claimed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    treasure_claimed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+    __table_args__ = (
+        # SQLAlchemy emits this on fresh installs; existing installs receive the
+        # whole table through create_all.
+        UniqueConstraint("user_id", "node_id", name="uq_level_adventure_user_node"),
+    )
 
 
 class Course(Base):

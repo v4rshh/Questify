@@ -113,6 +113,10 @@ class GameAnswerRequest(BaseModel):
     answer_index: int = Field(ge=0, le=3)
 
 
+class WorldRetryRequest(BaseModel):
+    node_ids: list[UUID] = Field(min_length=1, max_length=12)
+
+
 class FlashcardRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -227,6 +231,7 @@ class TutorChatResponse(BaseModel):
 
 class GamificationDashboardRead(BaseModel):
     xp: int
+    gems: int = 0
     streak_count: int
     mastery_tier: str
     total_courses: int
