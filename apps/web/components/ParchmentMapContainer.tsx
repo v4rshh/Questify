@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import AvatarToken, { type AvatarAction } from './AvatarToken';
 import MapNode from './MapNode';
 import WizardDialogueBox from './WizardDialogueBox';
-import type { AdventureProgress, EnemyKind, Level, MapLevel, WizardMood } from './quest-map.types';
+import type { AdventureProgress, EnemyKind, Level, MapLevel, WizardHelp, WizardMood } from './quest-map.types';
 
 const yPattern = [318, 218, 286, 182, 304, 226];
 const enemyPattern: EnemyKind[] = ['eye', 'fleshmaw', 'hornbrute'];
@@ -48,9 +48,10 @@ interface Props {
   wizardMood: WizardMood;
   onOpenLevel: (level: MapLevel) => void;
   onTreasure: (level: MapLevel) => void;
+  onWizardHelp?: (level: MapLevel) => Promise<WizardHelp>;
 }
 
-export default function ParchmentMapContainer({ nodes, progress, activeLevelId, avatarPoint, avatarAction = 'idle', defeatedEnemies, wizardMood, onOpenLevel, onTreasure }: Props) {
+export default function ParchmentMapContainer({ nodes, progress, activeLevelId, avatarPoint, avatarAction = 'idle', defeatedEnemies, wizardMood, onOpenLevel, onTreasure, onWizardHelp }: Props) {
   const levels = useMemo(() => buildMapLevels(nodes), [nodes]);
   const width = Math.max(1080, (levels.at(-1)?.x || 800) + 230);
   const groups = Array.from(new Set(levels.map(level => level.displayWorld))).map(world => levels.filter(level => level.displayWorld === world));
@@ -76,7 +77,7 @@ export default function ParchmentMapContainer({ nodes, progress, activeLevelId, 
           return <MapNode key={`treasure-${final.id}`} kind="treasure" point={chestPoint} claimed={Boolean(progress[final.id]?.treasure_claimed)} unlocked={final.status !== 'locked'} onTreasure={() => onTreasure(final)} />;
         })}
         <AvatarToken point={point} action={avatarAction} />
-        <WizardDialogueBox mood={wizardMood} concept={current?.title} />
+        <WizardDialogueBox mood={wizardMood} concept={current?.title} gemCost={5} onAsk={current && onWizardHelp ? () => onWizardHelp(current) : undefined} />
         <div className="legend"><span><i className="done" /> Mastered</span><span><i className="open" /> Current trail</span><span><i /> Locked</span></div>
       </div>
       <style jsx>{`

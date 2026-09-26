@@ -213,3 +213,11 @@ main .glass-card p, main .glass-card span, main .glass-card div { color: inherit
   transform: rotateY(180deg);
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
 }
+
+:root {
+  --ui-scale: 1.15;
+}
+
+.app-shell {
+  zoom: var(--ui-scale);
+}

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, EmailStr, ConfigDict, Field
 
@@ -43,6 +44,11 @@ class TokenData(BaseModel):
 
 class UserRoleUpdate(BaseModel):
     role: str
+
+
+class PasswordChange(BaseModel):
+    new_password: str = Field(min_length=8, max_length=128)
+    confirm_password: str = Field(min_length=8, max_length=128)
 
 
 # Course & Material Schemas
@@ -113,6 +119,11 @@ class GameAnswerRequest(BaseModel):
     answer_index: int = Field(ge=0, le=3)
 
 
+class WizardHelpRequest(BaseModel):
+    mode: Literal["hint", "concept"]
+    question_index: int | None = Field(default=None, ge=0)
+
+
 class WorldRetryRequest(BaseModel):
     node_ids: list[UUID] = Field(min_length=1, max_length=12)
 
@@ -154,6 +165,25 @@ class QuizRead(BaseModel):
 
 class QuizSubmitCreate(BaseModel):
     answers: list[int]
+
+
+class QuizSessionAnswerCreate(BaseModel):
+    quiz_id: UUID
+    question_index: int = Field(ge=0)
+    answer_index: int = Field(ge=0, le=3)
+
+
+class QuizSessionSubmitCreate(BaseModel):
+    answers: list[QuizSessionAnswerCreate] = Field(min_length=1, max_length=100)
+
+
+class QuizSessionAttemptRead(BaseModel):
+    score: int
+    max_score: int
+    accuracy_percentage: float
+    xp_earned: int
+    total_xp: int
+    attempts_created: int
 
 
 class QuizAttemptRead(BaseModel):
@@ -202,6 +232,44 @@ class AchievementRead(BaseModel):
     description: str
     badge_icon: str
     unlocked_at: datetime
+
+
+class ProfileTopicRead(BaseModel):
+    id: UUID
+    title: str
+    mastery_score: float
+    is_unlocked: bool
+    world_index: int
+    level_index: int
+
+
+class ProfileBadgeRead(BaseModel):
+    title: str
+    description: str
+    icon: str
+    earned: bool
+
+
+class LearnerProfileRead(BaseModel):
+    username: str
+    email: str
+    member_since: datetime
+    xp: int
+    gems: int
+    mastery_tier: str
+    next_tier: str | None = None
+    next_tier_xp: int | None = None
+    tier_progress_percentage: float
+    rank: int
+    total_learners: int
+    streak_count: int
+    total_courses: int
+    completed_quizzes: int
+    mastered_topics: int
+    total_topics: int
+    topics: list[ProfileTopicRead]
+    badges: list[ProfileBadgeRead]
+    achievements: list[AchievementRead]
 
 
 # AI Tutor Schemas

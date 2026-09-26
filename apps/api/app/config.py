@@ -8,8 +8,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # to the documented root .env is available in either workflow. The API-local
 # file comes second to preserve its SQLite development defaults.
 API_DIRECTORY = Path(__file__).resolve().parent.parent
-REPOSITORY_DIRECTORY = API_DIRECTORY.parents[1]
-
+REPOSITORY_DIRECTORY = (
+    API_DIRECTORY.parents[1]
+    if len(API_DIRECTORY.parents) > 1
+    else API_DIRECTORY
+)
 
 class Settings(BaseSettings):
     # Default to zero-setup SQLite database so the app runs without Docker/PostgreSQL

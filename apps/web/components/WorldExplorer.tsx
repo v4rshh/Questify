@@ -9,7 +9,7 @@ import ParchmentMapContainer, { buildMapLevels } from './ParchmentMapContainer';
 import QuizModal from './QuizModal';
 import ReviewSummary from './ReviewSummary';
 import type { AvatarAction } from './AvatarToken';
-import type { AdventureProgress, Course, Feedback, Game, MapLevel, Material, ReviewData, WizardMood, World } from './quest-map.types';
+import type { AdventureProgress, Course, Feedback, Game, MapLevel, Material, ReviewData, WizardHelp, WizardMood, World } from './quest-map.types';
 import { fetchApi } from '@/lib/api';
 import { generateWorld, GenerationStatus } from '@/lib/world-generation';
 
@@ -139,6 +139,14 @@ export default function WorldExplorer() {
     return result;
   }
 
+  async function requestWizardHelp(level: MapLevel, mode: 'hint' | 'concept', questionIndex?: number) {
+    const result = await fetchApi<WizardHelp>(`/learning/levels/${level.id}/wizard-help`, {
+      method: 'POST', body: JSON.stringify({ mode, question_index: questionIndex }),
+    });
+    window.dispatchEvent(new Event('questify:metrics-updated'));
+    return result;
+  }
+
   async function finishLevel(completedGame: Game) {
     if (!selectedLevel) return;
     setQuizOpen(false);
@@ -152,10 +160,10 @@ export default function WorldExplorer() {
   }
 
   async function travelTo(level: MapLevel) {
-    setAvatarAction('walking');
+    setAvatarAction(level.enemy && !defeatedEnemies.has(level.id) ? 'running' : 'walking');
     if (level.enemy && !defeatedEnemies.has(level.id)) {
       setAvatarPoint({ x: level.x - 65, y: level.y });
-      await wait(1050); setAvatarAction('attacking'); await wait(650);
+      await wait(900); setAvatarAction('runAttacking'); await wait(540); setAvatarAction('attacking'); await wait(480); setAvatarAction('attack2'); await wait(440);
       setDefeatedEnemies(current => new Set(current).add(level.id));
     } else { setAvatarPoint({ x: level.x, y: level.y }); await wait(1050); }
     setAvatarPoint({ x: level.x, y: level.y }); setAvatarAction('idle'); setActiveLevelId(level.id); setWizardMood('celebrating');
@@ -216,10 +224,13 @@ export default function WorldExplorer() {
     {error && <div className="error" role="alert"><span>!</span>{error}<button onClick={() => setError('')}>×</button></div>}
     {loading ? <section className="loading-map">Unrolling your map…</section> : world?.generated ? <>
       <div className="map-meta"><span>{world.nodes.length} levels across {Math.ceil(world.nodes.length / 5)} world{world.nodes.length > 5 ? 's' : ''}</span><span>Drag or scroll sideways to explore →</span></div>
-      <ParchmentMapContainer nodes={world.nodes} progress={progress} activeLevelId={activeLevelId} avatarPoint={avatarPoint} avatarAction={avatarAction} defeatedEnemies={defeatedEnemies} wizardMood={wizardMood} onOpenLevel={openLevel} onTreasure={claimTreasure} />
+      <ParchmentMapContainer nodes={world.nodes} progress={progress} activeLevelId={activeLevelId} avatarPoint={avatarPoint} avatarAction={avatarAction} defeatedEnemies={defeatedEnemies} wizardMood={wizardMood} onOpenLevel={openLevel} onTreasure={claimTreasure} onWizardHelp={(level) => requestWizardHelp(level, 'concept')} />
     </> : <section className="empty"><div>🗺️</div><h2>{working ? 'The Wizard is charting your path…' : 'Your adventure begins with a resource'}</h2><p>{working ? `${generation?.progress || 0}% · ${generation?.message || 'Reading concepts and arranging prerequisites.'}` : 'Generate a source-grounded learning world with trials, treasures, enemies, and review checkpoints.'}</p><button disabled={!material || working} onClick={generate}>{working ? 'Building world…' : 'Generate adventure map'}</button>{!materials.length && <a href="/dashboard">Upload a resource first</a>}</section>}
   </main>
-  <QuizModal open={quizOpen} level={selectedLevel} game={game} loading={gameLoading} onClose={() => setQuizOpen(false)} onAnswer={answer} onLevelComplete={finishLevel} onMoodChange={setWizardMood} />
+  <QuizModal open={quizOpen} level={selectedLevel} game={game} loading={gameLoading} onClose={() => setQuizOpen(false)} onAnswer={answer} onRequestHint={(questionIndex) => {
+    if (!selectedLevel) return Promise.reject(new Error('The level is still loading.'));
+    return requestWizardHelp(selectedLevel, 'hint', questionIndex);
+  }} onLevelComplete={finishLevel} onMoodChange={setWizardMood} />
   <AnimatePresence>{milestone && <RewardPopup title="Milestone Reached!" icon="🎁" copy="Fantastic work—another stretch of the path is yours." reward={milestone.reward} action="Continue Path" onContinue={continueMilestone} />}</AnimatePresence>
   <AnimatePresence>{treasure && <RewardPopup title={treasure.reward.xp_gained ? 'Treasure Unsealed!' : 'Treasure Already Claimed'} icon="🧰" copy="The cache glows with knowledge gathered along the trail." reward={treasure.reward} action="Approach Final Trial" onContinue={continueTreasure} />}</AnimatePresence>
   {review && <ReviewSummary data={review} onContinue={continueReview} onRetry={retryWorld} />}

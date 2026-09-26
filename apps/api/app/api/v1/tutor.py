@@ -9,6 +9,7 @@ from ...models import Course, Material, User
 from ...schemas import TutorChatRequest, TutorChatResponse
 from ...agents.gamification_tool import GAME_MODE_QUESTION_XP
 from ...rag.workflow import answer_course_question
+from ...services.gamification import sync_mastery_tier
 from ..deps import get_current_user
 
 router = APIRouter(prefix="/tutor", tags=["AI Tutor"])
@@ -50,6 +51,7 @@ def chat_with_tutor(
     xp_earned = GAME_MODE_QUESTION_XP if payload.mode == "game" else 0
     if xp_earned:
         current_user.xp += xp_earned
+        sync_mastery_tier(current_user)
         db.commit()
         db.refresh(current_user)
 

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from ...database import get_db
 from ...models import User, UserRole, Quest, Achievement
-from ...schemas import UserCreate, UserRead, UserLogin, Token
+from ...schemas import PasswordChange, UserCreate, UserRead, UserLogin, Token
 from ...core.security import get_password_hash, verify_password, create_access_token
 from ..deps import get_current_user
 from datetime import datetime, timezone, timedelta
@@ -97,3 +97,19 @@ def login_user(payload: UserLogin, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserRead)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.put("/password")
+def change_password(payload: PasswordChange, db: Session = Depends(get_db),
+                    current_user: User = Depends(get_current_user)):
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(status_code=422, detail="The new passwords do not match")
+    if not any(character.isalpha() for character in payload.new_password) or not any(character.isdigit() for character in payload.new_password):
+        raise HTTPException(status_code=422, detail="Use at least one letter and one number")
+    if len(payload.new_password.encode("utf-8")) > 72:
+        raise HTTPException(status_code=422, detail="Password is too long")
+    if verify_password(payload.new_password, current_user.hashed_password):
+        raise HTTPException(status_code=422, detail="Choose a password different from your current password")
+    current_user.hashed_password = get_password_hash(payload.new_password)
+    db.commit()
+    return {"message": "Password updated successfully"}

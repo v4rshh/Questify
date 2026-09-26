@@ -23,6 +23,7 @@ type IconName =
   | 'sun'
   | 'target'
   | 'trophy'
+  | 'trash'
   | 'upload'
   | 'user'
   | 'x';
@@ -50,6 +51,7 @@ const paths: Record<IconName, React.ReactNode> = {
   sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>,
   target: <><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2" /></>,
   trophy: <><path d="M8 21h8M12 17v4M6 4h12v5a6 6 0 0 1-12 0z" /><path d="M6 7H3v2a4 4 0 0 0 4 4M18 7h3v2a4 4 0 0 1-4 4" /></>,
+  trash: <><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6" /></>,
   upload: <><path d="M12 16V4M7 9l5-5 5 5M5 20h14" /></>,
   user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
   x: <><path d="m6 6 12 12M18 6 6 18" /></>,

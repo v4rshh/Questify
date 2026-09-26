@@ -24,7 +24,15 @@ export interface GameQuestion {
   options: string[];
   source: string;
   page: number | null;
-  hint: string;
+  hint?: string;
+}
+
+export interface WizardHelp {
+  mode: 'hint' | 'concept';
+  title: string;
+  content: string;
+  cost: number;
+  remaining_gems: number;
 }
 
 export interface Game {

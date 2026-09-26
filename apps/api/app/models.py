@@ -58,7 +58,7 @@ class UserAdventureState(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
-    gems: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    gems: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc), nullable=False

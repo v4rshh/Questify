@@ -26,8 +26,8 @@ export default function Header({ title, userXp = 0, streakCount = 0, masteryTier
         <span className="metric"><Icon name="flame" size={15} /> {metrics.streak} day streak</span>
         <span className="metric gem">💎 {metrics.gems} Gems</span>
         <span className="metric"><Icon name="sparkles" size={15} /> {metrics.xp} XP</span>
-        <span className="tier-pill">{metrics.tier}</span>
-        <Link href="/dashboard" className="header-avatar"><Icon name="user" size={16} /></Link>
+        <span className="tier-pill" title="XP raises your mastery tier: Bronze, Silver, Gold, Platinum, then Diamond.">{metrics.tier}</span>
+        <Link href="/profile" className="header-avatar" aria-label="Open learner profile" title="Learner profile"><Icon name="user" size={16} /></Link>
       </div>
       <style jsx>{`
         .questify-header { position: sticky; top: 0; z-index: 45; height: 72px; display: flex; align-items: center; justify-content: space-between; padding: 0 34px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(10px); }

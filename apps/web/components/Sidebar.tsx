@@ -45,8 +45,11 @@ interface SidebarProps {
   activeThreadId?: string;
   onNewChat?: () => void;
   onSelectThread?: (id: string) => void;
+  onDeleteThread?: (thread: ChatThread) => void;
+  onDeleteWorld?: (thread: ChatThread) => void;
   canCreateWorld?: boolean;
   isCreatingWorld?: boolean;
+  isCheckingWorld?: boolean;
   onCreateWorld?: () => void;
 }
 
@@ -55,8 +58,11 @@ export default function Sidebar({
   activeThreadId,
   onNewChat,
   onSelectThread,
+  onDeleteThread,
+  onDeleteWorld,
   canCreateWorld = false,
   isCreatingWorld = false,
+  isCheckingWorld = false,
   onCreateWorld,
 }: SidebarProps) {
   const pathname = usePathname();
@@ -108,10 +114,10 @@ export default function Sidebar({
                 )}
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={onCreateWorld} disabled={!canCreateWorld || isCreatingWorld} tooltip={canCreateWorld ? 'Create learning world' : 'Upload a resource first'} className="h-9 border border-dashed border-sidebar-border text-sidebar-foreground hover:border-sidebar-primary hover:bg-sidebar-accent">
+                <SidebarMenuButton onClick={onCreateWorld} disabled={!canCreateWorld || isCreatingWorld || isCheckingWorld} tooltip={isCheckingWorld ? 'Checking workspace resources' : canCreateWorld ? 'Create learning world' : 'Upload a resource first'} className="h-9 border border-dashed border-sidebar-border text-sidebar-foreground hover:border-sidebar-primary hover:bg-sidebar-accent">
                   <Icon name="sparkles" size={16} />
-                  <span>{isCreatingWorld ? 'Creating world…' : 'Create world'}</span>
-                  <small className="ml-auto text-[10px] text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">{canCreateWorld ? 'Ready' : 'Upload'}</small>
+                  <span>{isCheckingWorld ? 'Checking workspace…' : isCreatingWorld ? 'Creating world…' : 'Create world'}</span>
+                  <small className="ml-auto text-[10px] text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">{isCheckingWorld ? 'Wait' : canCreateWorld ? 'Ready' : 'Upload'}</small>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -141,20 +147,22 @@ export default function Sidebar({
               <SidebarGroupContent>
                 <SidebarMenu>
                   {threads.length ? threads.map((thread) => (
-                    <SidebarMenuItem key={thread.id}>
-                      <SidebarMenuButton onClick={() => onSelectThread(thread.id)} isActive={activeThreadId === thread.id} tooltip={thread.title}>
+                    <SidebarMenuItem key={thread.id} className="relative">
+                      <SidebarMenuButton className="pr-8" onClick={() => onSelectThread(thread.id)} isActive={activeThreadId === thread.id} tooltip={thread.title}>
                         <Icon name="message" size={16} />
                         <span>{thread.title}</span>
                       </SidebarMenuButton>
+                      {onDeleteThread && <button type="button" className="absolute right-1 top-1 z-10 grid size-6 place-items-center rounded text-sidebar-foreground/45 hover:bg-red-500/15 hover:text-red-500 focus:bg-red-500/15 focus:text-red-500 group-data-[collapsible=icon]:hidden" onClick={(event) => { event.stopPropagation(); onDeleteThread(thread); }} aria-label={`Delete conversation ${thread.title}`} title="Delete conversation"><Icon name="trash" size={13} /></button>}
                       {thread.worldTitle && (
                         <SidebarMenuSub>
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton asChild>
+                          <SidebarMenuSubItem className="relative">
+                            <SidebarMenuSubButton asChild className="pr-8">
                               <Link href={`/roadmap?course=${thread.courseId || ''}&material=${thread.materialId || ''}`} title={thread.worldTitle}>
                                 <Icon name="library" size={14} />
                                 <span>{thread.worldTitle}</span>
                               </Link>
                             </SidebarMenuSubButton>
+                            {onDeleteWorld && <button type="button" className="absolute right-1 top-0 z-10 grid size-6 place-items-center rounded text-sidebar-foreground/45 hover:bg-red-500/15 hover:text-red-500 focus:bg-red-500/15 focus:text-red-500 group-data-[collapsible=icon]:hidden" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onDeleteWorld(thread); }} aria-label={`Delete world ${thread.worldTitle}`} title="Delete world"><Icon name="trash" size={12} /></button>}
                           </SidebarMenuSubItem>
                         </SidebarMenuSub>
                       )}
@@ -170,10 +178,10 @@ export default function Sidebar({
           <ThemeToggle />
           <SidebarMenu className="mt-1">
             <SidebarMenuItem>
-              <SidebarMenuButton asChild tooltip="My workspace">
-                <Link href="/dashboard">
+              <SidebarMenuButton asChild tooltip="Learner profile" isActive={pathname === '/profile'}>
+                <Link href="/profile">
                   <span className="grid size-5 shrink-0 place-items-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground"><Icon name="user" size={13} /></span>
-                  <span className="group-data-[collapsible=icon]:hidden"><strong className="block text-xs font-medium">My workspace</strong><small className="block text-[10px] text-sidebar-foreground/55">Personal learning</small></span>
+                  <span className="group-data-[collapsible=icon]:hidden"><strong className="block text-xs font-medium">My profile</strong><small className="block text-[10px] text-sidebar-foreground/55">Progress & security</small></span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

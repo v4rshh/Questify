@@ -4,18 +4,19 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...database import get_db
-from ...models import (Course, Flashcard, KnowledgeNode, Material, Quiz, QuizAttempt,
+from ...models import (Course, Flashcard, KnowledgeEdge, KnowledgeNode, Material, Quiz, QuizAttempt,
                        User, ResourceWorld, LevelGame, WorldCurriculumAudit,
                        WorldGenerationJob, UserAdventureState, LevelAdventureProgress)
 from ...services.curriculum import generate_curriculum
 from ...schemas import (
     WorldGenerateRequest,
     GameAnswerRequest,
+    WizardHelpRequest,
     WorldRetryRequest,
     CourseAnalyticsRead,
     FlashcardRead,
@@ -25,9 +26,12 @@ from ...schemas import (
     LearningWorldRead,
     QuizAttemptRead,
     QuizRead,
+    QuizSessionAttemptRead,
+    QuizSessionSubmitCreate,
     QuizSubmitCreate,
 )
 from ..deps import get_current_user
+from ...services.gamification import mastery_tier_for_xp, sync_mastery_tier
 
 
 router = APIRouter(prefix="/learning", tags=["Learning Worlds"])
@@ -105,6 +109,39 @@ def get_world(course_id: UUID, material_id: UUID | None = None,
         return _world_read(db, world)
     return LearningWorldRead(course_id=course.id, material_id=material_id,
                              title=_world_title(course), generated=False, nodes=[])
+
+
+@router.delete("/courses/{course_id}/world")
+def delete_world(course_id: UUID, material_id: UUID,
+                 db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Delete one generated world while preserving its uploaded source."""
+    _owned_course(db, course_id, current_user.id)
+    world = db.scalar(select(ResourceWorld).where(
+        ResourceWorld.course_id == course_id,
+        ResourceWorld.material_id == material_id,
+    ))
+    if not world:
+        raise HTTPException(404, "Learning world not found")
+
+    node_ids = list(db.scalars(select(LevelGame.node_id).where(LevelGame.world_id == world.id)).all())
+    if node_ids:
+        db.execute(delete(LevelAdventureProgress).where(LevelAdventureProgress.node_id.in_(node_ids)))
+        db.execute(delete(KnowledgeEdge).where(or_(
+            KnowledgeEdge.source_node_id.in_(node_ids),
+            KnowledgeEdge.target_node_id.in_(node_ids),
+        )))
+    db.execute(delete(LevelGame).where(LevelGame.world_id == world.id))
+    db.execute(delete(WorldCurriculumAudit).where(WorldCurriculumAudit.world_id == world.id))
+    # ORM deletion is used here so quiz attempts and flashcards follow their
+    # configured delete-orphan cascades.
+    for node in db.scalars(select(KnowledgeNode).where(KnowledgeNode.id.in_(node_ids))).all():
+        db.delete(node)
+    db.delete(world)
+    job = db.get(WorldGenerationJob, material_id)
+    if job:
+        db.delete(job)
+    db.commit()
+    return {"deleted": True, "material_id": str(material_id)}
 
 
 @router.post("/courses/{course_id}/world", response_model=LearningWorldRead, status_code=201)
@@ -197,9 +234,9 @@ def _game_read(node, game, progress=None):
         "node_id": str(node.id), "title": node.title, "difficulty": game.difficulty,
         "lesson": game.lesson, "solved_count": game.solved_count, "total": len(game.questions),
         "points": game.solved_count * 10, "completed": question is None,
-        "question": ({key: question.get(key) for key in ("prompt", "options", "source", "page")} | {
-            "hint": question.get("hint") or f"Think about the core idea behind {node.title}."
-        }) if question else None,
+        # Hints are intentionally omitted here. They are purchased from the
+        # Wizard endpoint so simply opening a level never leaks paid help.
+        "question": {key: question.get(key) for key in ("prompt", "options", "source", "page")} if question else None,
         "adventure": {
             "mistakes": progress.mistakes if progress else [],
             "correct_answers": progress.correct_answers if progress else [],
@@ -239,7 +276,10 @@ def answer_game(node_id: UUID, payload: GameAnswerRequest, db: Session = Depends
         if changed.rowcount != 1:
             db.rollback()
             raise HTTPException(409, "This challenge was already answered. Reload the level.")
-        db.execute(update(User).where(User.id == current_user.id).values(xp=User.xp + 10))
+        new_xp = current_user.xp + 10
+        db.execute(update(User).where(User.id == current_user.id).values(
+            xp=new_xp, mastery_tier=mastery_tier_for_xp(new_xp)
+        ))
         progress.correct_answers = [*progress.correct_answers, answer_record]
         node.mastery_score = (payload.question_index + 1) / len(game.questions) * 100
         if payload.question_index + 1 == len(game.questions):
@@ -263,10 +303,45 @@ def answer_game(node_id: UUID, payload: GameAnswerRequest, db: Session = Depends
 def _adventure_state(db, user_id):
     state = db.get(UserAdventureState, user_id)
     if not state:
-        state = UserAdventureState(user_id=user_id, gems=0)
+        state = UserAdventureState(user_id=user_id, gems=20)
         db.add(state)
         db.flush()
     return state
+
+
+@router.post("/levels/{node_id}/wizard-help")
+def wizard_help(node_id: UUID, payload: WizardHelpRequest, db: Session = Depends(get_db),
+                current_user: User = Depends(get_current_user)):
+    node, game = _owned_game(db, node_id, current_user.id)
+    cost = 2 if payload.mode == "hint" else 5
+    state = _adventure_state(db, current_user.id)
+    # A guarded update prevents rapid double clicks from taking the balance
+    # below zero, including when two requests arrive at nearly the same time.
+    charged = db.execute(update(UserAdventureState).where(
+        UserAdventureState.user_id == current_user.id,
+        UserAdventureState.gems >= cost,
+    ).values(gems=UserAdventureState.gems - cost).execution_options(synchronize_session=False))
+    if charged.rowcount != 1:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                            detail=f"You need {cost} gems for this Wizard help. Complete levels and open treasures to earn more.")
+
+    if payload.mode == "concept":
+        content = game.lesson
+        title = f"Full concept: {node.title}"
+    else:
+        index = game.solved_count if payload.question_index is None else payload.question_index
+        if index != game.solved_count or index >= len(game.questions):
+            db.rollback()
+            raise HTTPException(409, "That question is no longer active. Reload the level before asking for a hint.")
+        question = game.questions[index]
+        content = question.get("hint") or f"Focus on the central rule behind {node.title}, then eliminate options that contradict it."
+        title = "Wizard hint"
+
+    db.commit()
+    db.refresh(state)
+    return {"mode": payload.mode, "title": title, "content": content,
+            "cost": cost, "remaining_gems": state.gems}
 
 
 @router.post("/levels/{node_id}/reward")
@@ -278,15 +353,19 @@ def claim_level_reward(node_id: UUID, db: Session = Depends(get_db),
     progress = _adventure_progress(db, current_user.id, node_id, create=True)
     state = _adventure_state(db, current_user.id)
     xp_gained = gems_gained = 0
-    if not progress.level_reward_claimed:
-        progress.level_reward_claimed = True
+    claimed = db.execute(update(LevelAdventureProgress).where(
+        LevelAdventureProgress.id == progress.id,
+        LevelAdventureProgress.level_reward_claimed.is_(False),
+    ).values(level_reward_claimed=True).execution_options(synchronize_session=False))
+    if claimed.rowcount == 1:
         current_user.xp += 25
+        sync_mastery_tier(current_user)
         state.gems += 10
         xp_gained, gems_gained = 25, 10
         db.commit()
     return {"xp_gained": xp_gained, "gems_gained": gems_gained,
             "total_xp": current_user.xp, "total_gems": state.gems,
-            "claimed": progress.level_reward_claimed}
+            "claimed": True}
 
 
 @router.post("/levels/{node_id}/treasure")
@@ -296,15 +375,19 @@ def claim_treasure(node_id: UUID, db: Session = Depends(get_db),
     progress = _adventure_progress(db, current_user.id, node_id, create=True)
     state = _adventure_state(db, current_user.id)
     xp_gained = gems_gained = 0
-    if not progress.treasure_claimed:
-        progress.treasure_claimed = True
+    claimed = db.execute(update(LevelAdventureProgress).where(
+        LevelAdventureProgress.id == progress.id,
+        LevelAdventureProgress.treasure_claimed.is_(False),
+    ).values(treasure_claimed=True).execution_options(synchronize_session=False))
+    if claimed.rowcount == 1:
         current_user.xp += 15
+        sync_mastery_tier(current_user)
         state.gems += 5
         xp_gained, gems_gained = 15, 5
         db.commit()
     return {"xp_gained": xp_gained, "gems_gained": gems_gained,
             "total_xp": current_user.xp, "total_gems": state.gems,
-            "claimed": progress.treasure_claimed}
+            "claimed": True}
 
 
 @router.post("/world/retry")
@@ -372,6 +455,7 @@ def review_flashcard(
 
     xp_earned = 5 if payload.quality >= 3 else 2
     current_user.xp += xp_earned
+    sync_mastery_tier(current_user)
     if not db.scalar(select(LevelGame.id).where(LevelGame.node_id == node.id)):
         node.mastery_score = min(100.0, node.mastery_score + (4.0 if payload.quality >= 3 else 1.0))
     db.commit()
@@ -387,7 +471,7 @@ def list_quizzes(course_id: UUID, db: Session = Depends(get_db), current_user: U
         select(Quiz)
         .join(KnowledgeNode, Quiz.node_id == KnowledgeNode.id)
         .where(KnowledgeNode.course_id == course_id)
-        .order_by(Quiz.created_at.desc())
+        .order_by(KnowledgeNode.world_index, KnowledgeNode.level_index)
     ).all()
 
 
@@ -422,6 +506,7 @@ def submit_quiz(
         xp_earned=xp_earned,
     )
     current_user.xp += xp_earned
+    sync_mastery_tier(current_user)
     has_game = db.scalar(select(LevelGame.id).where(LevelGame.node_id == node.id))
     if not has_game:
         node.mastery_score = max(node.mastery_score, accuracy)
@@ -437,6 +522,70 @@ def submit_quiz(
     db.commit()
     db.refresh(attempt)
     return attempt
+
+
+@router.post("/quizzes/session", response_model=QuizSessionAttemptRead, status_code=status.HTTP_201_CREATED)
+def submit_quiz_session(
+    payload: QuizSessionSubmitCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Score a level, mixed, or all-question practice session atomically."""
+    keys = [(item.quiz_id, item.question_index) for item in payload.answers]
+    if len(keys) != len(set(keys)):
+        raise HTTPException(422, "Each quiz question can only appear once in a practice session")
+
+    grouped: dict[UUID, list] = {}
+    nodes: dict[UUID, KnowledgeNode] = {}
+    quizzes: dict[UUID, Quiz] = {}
+    total_score = 0
+    for item in payload.answers:
+        quiz = quizzes.get(item.quiz_id) or db.get(Quiz, item.quiz_id)
+        if not quiz:
+            raise HTTPException(404, "One of the selected quizzes was not found")
+        quizzes[quiz.id] = quiz
+        node = nodes.get(quiz.node_id) or db.get(KnowledgeNode, quiz.node_id)
+        if not node:
+            raise HTTPException(404, "A learning node for this session was not found")
+        nodes[node.id] = node
+        _owned_course(db, node.course_id, current_user.id)
+        questions = quiz.questions_data.get("questions", [])
+        if item.question_index >= len(questions):
+            raise HTTPException(422, "A selected question is no longer available")
+        question = questions[item.question_index]
+        is_correct = item.answer_index == question.get("answer_index")
+        total_score += int(is_correct)
+        grouped.setdefault(quiz.id, []).append((item, is_correct))
+
+    for quiz_id, rows in grouped.items():
+        quiz = quizzes[quiz_id]
+        node = nodes[quiz.node_id]
+        score = sum(int(correct) for _, correct in rows)
+        maximum = len(rows)
+        accuracy = round(score / maximum * 100, 2)
+        db.add(QuizAttempt(
+            user_id=current_user.id, quiz_id=quiz.id, score=score,
+            max_score=maximum, accuracy_percentage=accuracy, xp_earned=score * 10,
+        ))
+        has_game = db.scalar(select(LevelGame.id).where(LevelGame.node_id == node.id))
+        if not has_game:
+            node.mastery_score = max(node.mastery_score, accuracy)
+            if accuracy >= 60:
+                node.is_unlocked = True
+
+    maximum = len(payload.answers)
+    xp_earned = total_score * 10
+    current_user.xp += xp_earned
+    sync_mastery_tier(current_user)
+    db.commit()
+    return QuizSessionAttemptRead(
+        score=total_score,
+        max_score=maximum,
+        accuracy_percentage=round(total_score / maximum * 100, 2),
+        xp_earned=xp_earned,
+        total_xp=current_user.xp,
+        attempts_created=len(grouped),
+    )
 
 
 @router.get("/courses/{course_id}/analytics", response_model=CourseAnalyticsRead)
