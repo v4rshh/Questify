@@ -4,13 +4,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-<<<<<<< HEAD
     "start": "next start",
     "format": "prettier --write \"app/**/*.{ts,tsx,css}\" \"components/**/*.{ts,tsx}\" \"hooks/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" \"*.{js,mjs,json}\"",
     "format:check": "prettier --check \"app/**/*.{ts,tsx,css}\" \"components/**/*.{ts,tsx}\" \"hooks/**/*.{ts,tsx}\" \"lib/**/*.{ts,tsx}\" \"*.{js,mjs,json}\""
-=======
-    "start": "next start"
->>>>>>> 87fe0b65fb36913b41c48bd554f447f5624b9a7f
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",
@@ -36,10 +32,7 @@
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.6.1",
     "postcss": "^8.5.28",
-<<<<<<< HEAD
     "prettier": "^3.6.2",
-=======
->>>>>>> 87fe0b65fb36913b41c48bd554f447f5624b9a7f
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2"
   }

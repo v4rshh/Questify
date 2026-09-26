@@ -57,7 +57,6 @@ export default function AuthSessionGate({ children }: AuthSessionGateProps) {
     return (
       <main className="session-check" role="status" aria-live="polite">
         <div className="session-check__mark">Q</div>
-<<<<<<< HEAD
         <p>
           {sessionState === 'redirecting'
             ? 'Returning to sign in…'
@@ -86,12 +85,6 @@ export default function AuthSessionGate({ children }: AuthSessionGateProps) {
             font-size: 20px;
             font-weight: 700;
           }
-=======
-        <p>{sessionState === 'redirecting' ? 'Returning to sign in…' : 'Checking your study session…'}</p>
-        <style jsx>{`
-          .session-check { display:grid; min-height:100vh; place-content:center; justify-items:center; gap:12px; background:var(--background); color:var(--muted); font-size:13px; }
-          .session-check__mark { display:grid; width:38px; height:38px; place-items:center; border-radius:10px; background:var(--accent); color:white; font-family:Georgia,serif; font-size:20px; font-weight:700; }
->>>>>>> 87fe0b65fb36913b41c48bd554f447f5624b9a7f
         `}</style>
       </main>
     );

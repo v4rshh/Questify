@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-<<<<<<< HEAD
 
 import Header from '@/components/Header';
 import { Icon } from '@/components/Icon';
@@ -460,23 +459,4 @@ export default function FlashcardsPage() {
       `}</style>
     </div>
   );
-=======
-import Sidebar from '@/components/Sidebar';
-import Header from '@/components/Header';
-import { Icon } from '@/components/Icon';
-import { fetchApi } from '@/lib/api';
-
-interface Course { id: string; title: string; }
-interface Flashcard { id: string; front: string; back: string; hint?: string | null; interval_days: number; repetition_count: number; }
-
-export default function FlashcardsPage() {
-  const [courses, setCourses] = useState<Course[]>([]); const [courseId, setCourseId] = useState(''); const [cards, setCards] = useState<Flashcard[]>([]); const [index, setIndex] = useState(0); const [flipped, setFlipped] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [notice, setNotice] = useState('');
-  useEffect(() => { fetchApi<Course[]>('/courses').then((items) => { setCourses(items); if (items.length) setCourseId(items[0].id); }).catch((err) => setError(err.message)); }, []);
-  useEffect(() => { if (!courseId) return; setIndex(0); setFlipped(false); fetchApi<Flashcard[]>(`/learning/courses/${courseId}/flashcards`).then(setCards).catch((err) => setError(err.message)); }, [courseId]);
-  const card = cards[index];
-  const review = async (quality: number) => { if (!card || busy) return; setBusy(true); setError(''); try { const result = await fetchApi<{ xp_earned: number }>(`/learning/flashcards/${card.id}/review`, { method: 'POST', body: JSON.stringify({ quality }) }); setNotice(`Saved · +${result.xp_earned} XP`); setFlipped(false); setIndex((current) => cards.length ? (current + 1) % cards.length : 0); } catch (err) { setError(err instanceof Error ? err.message : 'Could not save review.'); } finally { setBusy(false); } };
-  return <div className="app-shell"><Sidebar /><div className="page-content"><Header title="Flashcards" /><main className="flash-page"><div className="flash-top"><div><p className="eyebrow">Active recall</p><h2>Practice what you want to keep.</h2></div><select className="course-select" value={courseId} onChange={(event) => setCourseId(event.target.value)}><option value="">Choose workspace</option>{courses.map((course) => <option key={course.id} value={course.id}>{course.title}</option>)}</select></div>{error && <p className="error-message">{error}</p>}{notice && <p className="notice">{notice}</p>}{card ? <section className="deck"><div className="deck-meta"><span>Card {index + 1} of {cards.length}</span><span>Review interval: {card.interval_days} day{card.interval_days === 1 ? '' : 's'}</span></div><button type="button" className={`study-card ${flipped ? 'flipped' : ''}`} onClick={() => setFlipped((value) => !value)}><div className="card-label">{flipped ? 'Answer' : 'Question'}</div><h3>{flipped ? card.back : card.front}</h3><p>{flipped ? 'Rate how easily you recalled it.' : 'Select the card to reveal the answer.'}</p></button>{flipped && <div className="review-actions"><button className="btn review-again" disabled={busy} onClick={() => review(1)}>Again <span>1 day</span></button><button className="btn review-good" disabled={busy} onClick={() => review(4)}>Good <span>Save progress</span></button><button className="btn btn-primary" disabled={busy} onClick={() => review(5)}>Easy <Icon name="arrowUp" size={14} /></button></div>}</section> : <section className="panel empty"><Icon name="bookOpen" size={22} /><h3>No flashcards yet</h3><p>Generate a learning world from an uploaded resource to create your starter deck.</p></section>}</main></div><style jsx>{`
-.flash-page{max-width:850px;margin:0 auto;padding:38px}.flash-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px}.eyebrow{color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}.flash-top h2{margin-top:6px;font-size:29px;letter-spacing:-.045em}.course-select{min-width:220px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--foreground)}.deck-meta{display:flex;justify-content:space-between;margin-bottom:11px;color:var(--muted);font-size:12px}.study-card{display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;min-height:350px;padding:38px;border:1px solid var(--border-strong);border-radius:15px;background:var(--surface);color:var(--foreground);text-align:center;transition:.18s}.study-card:hover{border-color:#9ab8a8}.study-card.flipped{background:var(--accent-soft);border-color:#abc4b3}.card-label{margin-bottom:18px;color:var(--accent);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}.study-card h3{max-width:620px;font-size:25px;line-height:1.35;letter-spacing:-.035em}.study-card p{margin-top:20px;color:var(--muted);font-size:12px}.review-actions{display:flex;justify-content:center;gap:10px;margin-top:17px}.review-actions .btn{min-width:128px}.review-actions .btn span{display:block;color:inherit;font-size:10px;font-weight:400}.review-again{border-color:#e4b0b0;color:#9b3f3f}.review-good{border-color:#e5cf9d;color:#8a6323}.empty{display:flex;flex-direction:column;align-items:center;gap:9px;margin:70px auto;padding:32px;max-width:440px;text-align:center;color:var(--accent)}.empty h3{color:var(--foreground);font-size:19px}.empty p{color:var(--muted);font-size:13px;line-height:1.55}.error-message,.notice{margin-bottom:12px;padding:10px 12px;border-radius:8px;font-size:12px}.error-message{border:1px solid #e7caca;color:var(--danger)}.notice{border:1px solid #b9d5c3;background:var(--accent-soft);color:var(--accent)}@media(max-width:700px){.flash-page{padding:24px 16px}.flash-top{flex-direction:column;gap:16px}.course-select{width:100%}.study-card{min-height:300px;padding:24px}.study-card h3{font-size:21px}.review-actions{align-items:stretch;flex-direction:column}.review-actions .btn{width:100%}}
-`}</style></div>;
->>>>>>> 87fe0b65fb36913b41c48bd554f447f5624b9a7f
 }

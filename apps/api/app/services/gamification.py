@@ -3,12 +3,9 @@ from __future__ import annotations
 from ..models import MasteryTier, User
 
 
-<<<<<<< HEAD
 GAME_MODE_QUESTION_XP = 5
 
 
-=======
->>>>>>> 87fe0b65fb36913b41c48bd554f447f5624b9a7f
 MASTERY_THRESHOLDS: tuple[tuple[int, str], ...] = (
     (3000, MasteryTier.DIAMOND.value),
     (1500, MasteryTier.PLATINUM.value),

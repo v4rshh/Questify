@@ -2,7 +2,6 @@ export type WizardMood = 'neutral' | 'thinking' | 'celebrating' | 'puzzled';
 export type NodeStatus = 'locked' | 'unlocked' | 'completed';
 export type EnemyKind = 'eye' | 'fleshmaw' | 'hornbrute';
 
-<<<<<<< HEAD
 export interface Course {
   id: string;
   title: string;
@@ -12,10 +11,6 @@ export interface Material {
   filename: string;
   status: string;
 }
-=======
-export interface Course { id: string; title: string; }
-export interface Material { id: string; filename: string; status: string; }
->>>>>>> 87fe0b65fb36913b41c48bd554f447f5624b9a7f
 
 export interface AdventureRecord {
   question: string;
@@ -92,14 +87,10 @@ export interface World {
   };
 }
 
-<<<<<<< HEAD
 export interface MapPoint {
   x: number;
   y: number;
 }
-=======
-export interface MapPoint { x: number; y: number; }
->>>>>>> 87fe0b65fb36913b41c48bd554f447f5624b9a7f
 
 export interface MapLevel extends Level, MapPoint {
   displayWorld: number;
