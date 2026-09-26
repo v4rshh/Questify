@@ -1,0 +1,23 @@
+# Environment and generated files
+.env*
+!.env.example
+.env.local
+.env.*.local
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+node_modules/
+.next/
+.vscode/
+coverage/
+uploads/
+apps/api/data/
+*.db
+*.sqlite
+*.sqlite3
+*.log
+data/
+.generation-locks/
+docker-compose.override.yml
+docker-compose.local.yml
