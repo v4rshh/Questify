@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import type { CSSProperties } from 'react';
 import type { MapPoint } from './quest-map.types';
 
+<<<<<<< HEAD
 export type AvatarAction =
   | 'idle'
   | 'walking'
@@ -14,6 +15,9 @@ export type AvatarAction =
   | 'defending'
   | 'hurt'
   | 'jumping';
+=======
+export type AvatarAction = 'idle' | 'walking' | 'running' | 'attacking' | 'attack2' | 'runAttacking' | 'defending' | 'hurt' | 'jumping';
+>>>>>>> 87fe0b65fb36913b41c48bd554f447f5624b9a7f
 
 const animations: Record<AvatarAction, { sheet: string; frames: number; duration: number }> = {
   idle: { sheet: 'idle.png', frames: 4, duration: 920 },
@@ -27,6 +31,7 @@ const animations: Record<AvatarAction, { sheet: string; frames: number; duration
   jumping: { sheet: 'jump.png', frames: 6, duration: 650 },
 };
 
+<<<<<<< HEAD
 export default function AvatarToken({
   point,
   action = 'idle',
@@ -34,6 +39,9 @@ export default function AvatarToken({
   point: MapPoint;
   action?: AvatarAction;
 }) {
+=======
+export default function AvatarToken({ point, action = 'idle' }: { point: MapPoint; action?: AvatarAction }) {
+>>>>>>> 87fe0b65fb36913b41c48bd554f447f5624b9a7f
   const reduceMotion = useReducedMotion();
   const animation = animations[action];
   const moving = action === 'walking' || action === 'running' || action === 'runAttacking';
@@ -50,6 +58,7 @@ export default function AvatarToken({
     <motion.div
       className="avatar-token"
       initial={false}
+<<<<<<< HEAD
       animate={{
         x: point.x - 52,
         y: point.y - 94,
@@ -113,6 +122,20 @@ export default function AvatarToken({
             animation: none;
           }
         }
+=======
+      animate={{ x: point.x - 52, y: point.y - 94, scale: action === 'attacking' || action === 'attack2' ? [1, 1.08, 1] : 1 }}
+      transition={{ x: { duration: moving ? .9 : .3, ease: 'easeInOut' }, y: { duration: moving ? .9 : .3, ease: 'easeInOut' }, scale: { duration: .45 } }}
+      aria-label={`Player is ${action}`}
+    >
+      <div className="hero-frame" style={style} />
+      <span>{action.toLowerCase().includes('attack') ? 'Battle!' : moving ? 'Onward!' : 'You'}</span>
+      <style jsx global>{`
+        .avatar-token{position:absolute;z-index:18;left:0;top:0;width:104px;height:112px;pointer-events:none;filter:drop-shadow(0 8px 5px rgba(28,39,58,.3))}
+        .hero-frame{width:104px;height:104px;background-image:var(--hero-sheet);background-size:var(--hero-sheet-width) 104px;background-position:0 0;background-repeat:no-repeat;image-rendering:pixelated;animation:hero-knight-frames var(--hero-duration) steps(var(--hero-frames)) infinite}
+        .avatar-token>span{position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);padding:2px 7px;border:1px solid #9f7a45;border-radius:999px;background:#fff6d8;color:#5d4025;font:800 9px/1.3 ui-sans-serif,system-ui;white-space:nowrap;box-shadow:0 2px 5px rgba(74,48,22,.16)}
+        @keyframes hero-knight-frames{to{background-position-x:var(--hero-end)}}
+        @media(prefers-reduced-motion:reduce){.hero-frame{animation:none}}
+>>>>>>> 87fe0b65fb36913b41c48bd554f447f5624b9a7f
       `}</style>
     </motion.div>
   );

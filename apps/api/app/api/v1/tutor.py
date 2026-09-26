@@ -7,8 +7,14 @@ from sqlalchemy.orm import Session
 from ...database import get_db
 from ...models import Course, Material, User
 from ...schemas import TutorChatRequest, TutorChatResponse
+<<<<<<< HEAD
 from ...services.gamification import GAME_MODE_QUESTION_XP, sync_mastery_tier
 from ...rag.workflow import answer_course_question
+=======
+from ...agents.gamification_tool import GAME_MODE_QUESTION_XP
+from ...rag.workflow import answer_course_question
+from ...services.gamification import sync_mastery_tier
+>>>>>>> 87fe0b65fb36913b41c48bd554f447f5624b9a7f
 from ..deps import get_current_user
 
 router = APIRouter(prefix="/tutor", tags=["AI Tutor"])
