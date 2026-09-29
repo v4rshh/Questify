@@ -59,6 +59,31 @@ interface Stats {
   streak_count: number;
   mastery_tier: string;
   total_courses: number;
+  active_quests: Quest[];
+}
+interface Quest {
+  id: string;
+  title: string;
+  description: string;
+  xp_reward: number;
+  target_count: number;
+  current_count: number;
+  is_completed: boolean;
+}
+interface TodayPlan {
+  course_id: string;
+  course_title: string;
+  estimated_minutes: number;
+  due_flashcards: number;
+  weak_topics: { node_id: string; title: string; mastery_score: number }[];
+  unfinished_levels: {
+    node_id: string;
+    title: string;
+    solved_questions: number;
+    total_questions: number;
+  }[];
+  recommended_quiz?: { quiz_id: string; title: string; difficulty: string } | null;
+  active_quest?: Quest | null;
 }
 type DeleteTarget = { kind: 'conversation' | 'world'; thread: ChatThread };
 
@@ -101,10 +126,13 @@ export default function DashboardPage() {
   const [chatStateReady, setChatStateReady] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [isResolvingContext, setIsResolvingContext] = useState(false);
+  const [todayPlan, setTodayPlan] = useState<TodayPlan | null>(null);
+  const [claimingQuest, setClaimingQuest] = useState(false);
 
   const messages = messagesByThread[activeThreadId] || [welcomeMessage];
   const activeThread = threads.find((thread) => thread.id === activeThreadId);
   const selectedCourse = courses.find((course) => course.id === selectedCourseId);
+  const activeQuest = todayPlan?.active_quest || stats?.active_quests?.[0];
   const canCreateWorld = Boolean(
     activeThread?.courseId &&
     activeThread.materialId &&
@@ -127,11 +155,41 @@ export default function DashboardPage() {
     ]).then(([courseResult, userResult, statsResult]) => {
       if (courseResult.status === 'fulfilled') {
         setCourses(courseResult.value);
+        setSelectedCourseId((current) => current || courseResult.value[0]?.id || '');
       }
       if (userResult.status === 'fulfilled') setUser(userResult.value);
       if (statsResult.status === 'fulfilled') setStats(statsResult.value);
     });
   }, []);
+
+  useEffect(() => {
+    if (!selectedCourseId) {
+      setTodayPlan(null);
+      return;
+    }
+    let active = true;
+    fetchApi<TodayPlan>(`/learning/today?course_id=${selectedCourseId}&minutes=20`)
+      .then((plan) => active && setTodayPlan(plan))
+      .catch(() => active && setTodayPlan(null));
+    return () => {
+      active = false;
+    };
+  }, [selectedCourseId, stats]);
+
+  async function claimQuest(quest: Quest) {
+    if (claimingQuest || quest.current_count < quest.target_count) return;
+    setClaimingQuest(true);
+    try {
+      await fetchApi(`/gamification/quests/${quest.id}/claim`, { method: 'POST' });
+      const refreshed = await fetchApi<Stats>('/gamification/dashboard');
+      setStats(refreshed);
+      window.dispatchEvent(new Event('questify:metrics-updated'));
+    } catch (claimError) {
+      setError(claimError instanceof Error ? claimError.message : 'Could not claim this quest.');
+    } finally {
+      setClaimingQuest(false);
+    }
+  }
 
   useEffect(() => {
     const refreshMetrics = () =>
@@ -730,6 +788,64 @@ export default function DashboardPage() {
                   <Icon name="sparkles" size={15} />
                   <p>Answers are grounded in the resources attached to this workspace.</p>
                 </div>
+                {todayPlan && (
+                  <section className="today-plan">
+                    <header>
+                      <div>
+                        <span>Today&apos;s plan</span>
+                        <strong>{todayPlan.estimated_minutes} min</strong>
+                      </div>
+                      <Icon name="target" size={17} />
+                    </header>
+                    <a href="/flashcards">
+                      <b>{todayPlan.due_flashcards}</b>
+                      <span>flashcards due</span>
+                    </a>
+                    <a href="/roadmap">
+                      <b>{todayPlan.unfinished_levels.length}</b>
+                      <span>levels to continue</span>
+                    </a>
+                    {todayPlan.recommended_quiz && (
+                      <a href="/quizzes" className="plan-recommendation">
+                        <span>Recommended quiz</span>
+                        <strong>{todayPlan.recommended_quiz.title}</strong>
+                      </a>
+                    )}
+                    {todayPlan.weak_topics[0] && (
+                      <p>
+                        Focus topic: <b>{todayPlan.weak_topics[0].title}</b>
+                      </p>
+                    )}
+                  </section>
+                )}
+                {activeQuest && (
+                  <section className="quest-card">
+                    <span>Daily quest · +{activeQuest.xp_reward} XP</span>
+                    <strong>{activeQuest.title}</strong>
+                    <p>{activeQuest.description}</p>
+                    <i>
+                      <b
+                        style={{
+                          width: `${Math.min(100, (activeQuest.current_count / activeQuest.target_count) * 100)}%`,
+                        }}
+                      />
+                    </i>
+                    <footer>
+                      <span>
+                        {activeQuest.current_count}/{activeQuest.target_count}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={
+                          claimingQuest || activeQuest.current_count < activeQuest.target_count
+                        }
+                        onClick={() => claimQuest(activeQuest)}
+                      >
+                        {claimingQuest ? 'Claiming…' : 'Claim'}
+                      </button>
+                    </footer>
+                  </section>
+                )}
               </>
             ) : (
               <div className="rail-empty">
@@ -1336,7 +1452,8 @@ export default function DashboardPage() {
         }
         .context-rail {
           width: 245px;
-          padding: 31px 27px 0 0;
+          padding: 31px 27px 28px 0;
+          overflow-y: auto;
         }
         .rail-heading {
           display: flex;
@@ -1391,6 +1508,107 @@ export default function DashboardPage() {
           color: var(--muted);
           font-size: 11px;
           line-height: 1.5;
+        }
+        .today-plan,
+        .quest-card {
+          display: grid;
+          gap: 9px;
+          margin-top: 18px;
+          padding: 14px;
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          background: var(--surface);
+          box-shadow: var(--shadow-sm);
+        }
+        .today-plan header,
+        .quest-card footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .today-plan header > div {
+          display: grid;
+          gap: 2px;
+        }
+        .today-plan header span,
+        .quest-card > span {
+          color: var(--accent);
+          font-size: 9px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+        .today-plan header strong {
+          font-size: 15px;
+        }
+        .today-plan > a {
+          display: flex;
+          align-items: baseline;
+          gap: 7px;
+          padding: 7px 9px;
+          border-radius: 8px;
+          background: var(--surface-muted);
+          color: var(--foreground);
+          text-decoration: none;
+        }
+        .today-plan > a:hover {
+          background: var(--accent-soft);
+        }
+        .today-plan > a b {
+          color: var(--accent);
+          font-size: 16px;
+        }
+        .today-plan > a span,
+        .today-plan > p,
+        .quest-card p {
+          color: var(--muted);
+          font-size: 10px;
+          line-height: 1.45;
+        }
+        .today-plan .plan-recommendation {
+          display: grid;
+          gap: 2px;
+        }
+        .today-plan .plan-recommendation strong {
+          overflow: hidden;
+          font-size: 11px;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+        .quest-card > strong {
+          font-size: 13px;
+        }
+        .quest-card > i {
+          height: 6px;
+          overflow: hidden;
+          border-radius: 99px;
+          background: var(--surface-muted);
+        }
+        .quest-card > i b {
+          display: block;
+          height: 100%;
+          border-radius: inherit;
+          background: linear-gradient(90deg, var(--accent), #6fb682);
+          transition: width 300ms ease;
+        }
+        .quest-card footer span {
+          color: var(--muted);
+          font-size: 10px;
+          font-weight: 700;
+        }
+        .quest-card footer button {
+          padding: 5px 9px;
+          border: 0;
+          border-radius: 7px;
+          background: var(--accent);
+          color: white;
+          font-size: 10px;
+          font-weight: 800;
+        }
+        .quest-card footer button:disabled {
+          background: var(--surface-muted);
+          color: var(--muted);
+          cursor: not-allowed;
         }
         .rail-empty {
           display: flex;

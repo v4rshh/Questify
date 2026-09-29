@@ -1,12 +1,15 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy import select, func
+from uuid import UUID
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select, func, update
 from sqlalchemy.orm import Session
 
 from ...database import get_db
 from ...models import User, Course, KnowledgeNode, QuizAttempt, Quest, Achievement, UserAdventureState
 from ...schemas import (AchievementRead, GamificationDashboardRead, LearnerProfileRead,
-                        ProfileBadgeRead, ProfileTopicRead, QuestRead)
-from ...services.gamification import mastery_tier_for_xp
+                        ProfileBadgeRead, ProfileTopicRead, QuestClaimRead, QuestRead)
+from ...services.gamification import ensure_daily_quests, mastery_tier_for_xp, sync_mastery_tier
 from ..deps import get_current_user
 
 router = APIRouter(prefix="/gamification", tags=["Gamification & Analytics"])
@@ -30,9 +33,7 @@ def get_gamification_dashboard(
         select(func.count(QuizAttempt.id)).where(QuizAttempt.user_id == current_user.id)
     ) or 0
 
-    active_quests = db.scalars(
-        select(Quest).where(Quest.user_id == current_user.id, Quest.is_completed == False)
-    ).all()
+    active_quests = ensure_daily_quests(db, current_user)
 
     recent_achievements = db.scalars(
         select(Achievement)
@@ -54,6 +55,8 @@ def get_gamification_dashboard(
     if changed:
         db.commit()
         db.refresh(adventure)
+    elif db.new:
+        db.commit()
     return GamificationDashboardRead(
         xp=current_user.xp,
         gems=adventure.gems if adventure else 0,
@@ -63,6 +66,46 @@ def get_gamification_dashboard(
         completed_quizzes=completed_quizzes,
         active_quests=[QuestRead.model_validate(q) for q in active_quests],
         recent_achievements=[AchievementRead.model_validate(a) for a in recent_achievements]
+    )
+
+
+@router.post("/quests/{quest_id}/claim", response_model=QuestClaimRead)
+def claim_quest(
+    quest_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    quest = db.get(Quest, quest_id)
+    if not quest or quest.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Quest not found")
+    expiry_now = datetime.now(timezone.utc) if quest.expires_at.tzinfo else datetime.now()
+    if quest.expires_at <= expiry_now:
+        raise HTTPException(status_code=409, detail="This quest has expired")
+    if quest.current_count < quest.target_count:
+        raise HTTPException(status_code=409, detail="Complete the quest before claiming it")
+
+    claimed = db.execute(
+        update(Quest)
+        .where(
+            Quest.id == quest.id,
+            Quest.user_id == current_user.id,
+            Quest.is_completed.is_(False),
+        )
+        .values(is_completed=True)
+        .execution_options(synchronize_session=False)
+    )
+    xp_earned = quest.xp_reward if claimed.rowcount == 1 else 0
+    if xp_earned:
+        current_user.xp += xp_earned
+        sync_mastery_tier(current_user)
+    db.commit()
+    db.refresh(quest)
+    db.refresh(current_user)
+    return QuestClaimRead(
+        claimed=bool(xp_earned),
+        xp_earned=xp_earned,
+        total_xp=current_user.xp,
+        quest=QuestRead.model_validate(quest),
     )
 
 

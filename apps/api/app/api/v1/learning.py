@@ -3,13 +3,14 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...database import get_db
 from ...models import (Course, Flashcard, KnowledgeEdge, KnowledgeNode, Material, Quiz, QuizAttempt,
+                       QuizAttemptAnswer,
                        User, ResourceWorld, LevelGame, WorldCurriculumAudit,
                        WorldGenerationJob, UserAdventureState, LevelAdventureProgress)
 from ...services.curriculum import generate_curriculum
@@ -25,16 +26,131 @@ from ...schemas import (
     KnowledgeNodeRead,
     LearningWorldRead,
     QuizAttemptRead,
+    QuizHistoryRead,
+    QuizMistakeRead,
     QuizRead,
     QuizSessionAttemptRead,
     QuizSessionSubmitCreate,
     QuizSubmitCreate,
+    TodayQuizRead,
+    TodayQuestRead,
+    TodayStudyPlanRead,
+    TodayUnfinishedLevelRead,
+    TodayWeakTopicRead,
 )
 from ..deps import get_current_user
-from ...services.gamification import mastery_tier_for_xp, sync_mastery_tier
+from ...services.gamification import (
+    ensure_daily_quests,
+    mastery_tier_for_xp,
+    record_quest_progress,
+    sync_mastery_tier,
+)
 
 
 router = APIRouter(prefix="/learning", tags=["Learning Worlds"])
+
+
+@router.get("/today", response_model=TodayStudyPlanRead)
+def get_today_plan(
+    course_id: UUID,
+    minutes: int = Query(default=20, ge=5, le=120),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Build a compact, source-backed study plan from existing learner data."""
+    course = _owned_course(db, course_id, current_user.id)
+    now = datetime.now(timezone.utc)
+
+    nodes = list(
+        db.scalars(
+            select(KnowledgeNode)
+            .where(KnowledgeNode.course_id == course_id)
+            .order_by(KnowledgeNode.mastery_score, KnowledgeNode.level_index)
+        ).all()
+    )
+    weak_nodes = [node for node in nodes if node.mastery_score < 80][:3]
+    due_flashcards = (
+        db.scalar(
+            select(func.count(Flashcard.id))
+            .join(KnowledgeNode, Flashcard.node_id == KnowledgeNode.id)
+            .where(
+                KnowledgeNode.course_id == course_id,
+                Flashcard.next_review_date <= now,
+            )
+        )
+        or 0
+    )
+
+    game_rows = db.execute(
+        select(KnowledgeNode, LevelGame)
+        .join(LevelGame, LevelGame.node_id == KnowledgeNode.id)
+        .where(KnowledgeNode.course_id == course_id)
+        .order_by(KnowledgeNode.level_index)
+    ).all()
+    unfinished = [
+        TodayUnfinishedLevelRead(
+            node_id=node.id,
+            title=node.title,
+            solved_questions=game.solved_count,
+            total_questions=len(game.questions),
+        )
+        for node, game in game_rows
+        if game.solved_count < len(game.questions)
+    ][:3]
+
+    recommended_quiz = db.scalar(
+        select(Quiz)
+        .join(KnowledgeNode, Quiz.node_id == KnowledgeNode.id)
+        .where(KnowledgeNode.course_id == course_id)
+        .order_by(KnowledgeNode.mastery_score, KnowledgeNode.level_index)
+        .limit(1)
+    )
+    quests = ensure_daily_quests(db, current_user)
+    active_quest = min(
+        quests,
+        key=lambda quest: (
+            quest.current_count < quest.target_count,
+            -(quest.current_count / max(1, quest.target_count)),
+        ),
+        default=None,
+    )
+    if db.new:
+        db.commit()
+
+    suggested_minutes = min(due_flashcards, 10)
+    if unfinished:
+        suggested_minutes += 6
+    if recommended_quiz:
+        suggested_minutes += 5
+    estimated_minutes = min(minutes, max(5, suggested_minutes))
+
+    return TodayStudyPlanRead(
+        course_id=course.id,
+        course_title=course.title,
+        requested_minutes=minutes,
+        estimated_minutes=estimated_minutes,
+        due_flashcards=due_flashcards,
+        weak_topics=[
+            TodayWeakTopicRead(
+                node_id=node.id,
+                title=node.title,
+                mastery_score=node.mastery_score,
+            )
+            for node in weak_nodes
+        ],
+        unfinished_levels=unfinished,
+        recommended_quiz=(
+            TodayQuizRead(
+                quiz_id=recommended_quiz.id,
+                title=recommended_quiz.title,
+                difficulty=recommended_quiz.difficulty,
+                reason="Recommended from your lowest-mastery available topic",
+            )
+            if recommended_quiz
+            else None
+        ),
+        active_quest=TodayQuestRead.model_validate(active_quest) if active_quest else None,
+    )
 
 
 @router.post("/courses/{course_id}/world/generation", status_code=202)
@@ -283,6 +399,7 @@ def answer_game(node_id: UUID, payload: GameAnswerRequest, db: Session = Depends
         progress.correct_answers = [*progress.correct_answers, answer_record]
         node.mastery_score = (payload.question_index + 1) / len(game.questions) * 100
         if payload.question_index + 1 == len(game.questions):
+            record_quest_progress(db, current_user, "level")
             next_node = db.scalar(select(KnowledgeNode).join(LevelGame).where(
                 LevelGame.world_id == game.world_id,
                 KnowledgeNode.level_index == node.level_index + 1))
@@ -414,14 +531,35 @@ def retry_world(payload: WorldRetryRequest, db: Session = Depends(get_db),
 
 
 @router.get("/courses/{course_id}/flashcards", response_model=list[FlashcardRead])
-def list_flashcards(course_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def list_flashcards(
+    course_id: UUID,
+    due_only: bool = False,
+    difficult_only: bool = False,
+    node_id: UUID | None = None,
+    limit: int | None = Query(default=None, ge=1, le=200),
+    shuffle: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     _owned_course(db, course_id, current_user.id)
-    return db.scalars(
+    query = (
         select(Flashcard)
         .join(KnowledgeNode, Flashcard.node_id == KnowledgeNode.id)
         .where(KnowledgeNode.course_id == course_id)
-        .order_by(Flashcard.next_review_date, Flashcard.created_at)
-    ).all()
+    )
+    if due_only:
+        query = query.where(Flashcard.next_review_date <= datetime.now(timezone.utc))
+    if difficult_only:
+        query = query.where(Flashcard.ease_factor < 2.5)
+    if node_id:
+        query = query.where(Flashcard.node_id == node_id)
+    query = query.order_by(
+        func.random() if shuffle else Flashcard.next_review_date,
+        Flashcard.created_at,
+    )
+    if limit:
+        query = query.limit(limit)
+    return db.scalars(query).all()
 
 
 @router.post("/flashcards/{flashcard_id}/review", response_model=FlashcardReviewRead)
@@ -456,6 +594,7 @@ def review_flashcard(
     xp_earned = 5 if payload.quality >= 3 else 2
     current_user.xp += xp_earned
     sync_mastery_tier(current_user)
+    record_quest_progress(db, current_user, "flashcard")
     if not db.scalar(select(LevelGame.id).where(LevelGame.node_id == node.id)):
         node.mastery_score = min(100.0, node.mastery_score + (4.0 if payload.quality >= 3 else 1.0))
     db.commit()
@@ -505,8 +644,24 @@ def submit_quiz(
         accuracy_percentage=accuracy,
         xp_earned=xp_earned,
     )
+    db.add(attempt)
+    db.flush()
+    db.add_all(
+        [
+            QuizAttemptAnswer(
+                attempt_id=attempt.id,
+                quiz_id=quiz.id,
+                question_index=index,
+                selected_answer_index=answer,
+                correct_answer_index=int(question.get("answer_index", 0)),
+                is_correct=answer == question.get("answer_index"),
+            )
+            for index, (answer, question) in enumerate(zip(payload.answers, questions))
+        ]
+    )
     current_user.xp += xp_earned
     sync_mastery_tier(current_user)
+    record_quest_progress(db, current_user, "quiz")
     has_game = db.scalar(select(LevelGame.id).where(LevelGame.node_id == node.id))
     if not has_game:
         node.mastery_score = max(node.mastery_score, accuracy)
@@ -518,7 +673,6 @@ def submit_quiz(
         )
         if next_node:
             next_node.is_unlocked = True
-    db.add(attempt)
     db.commit()
     db.refresh(attempt)
     return attempt
@@ -563,10 +717,29 @@ def submit_quiz_session(
         score = sum(int(correct) for _, correct in rows)
         maximum = len(rows)
         accuracy = round(score / maximum * 100, 2)
-        db.add(QuizAttempt(
+        attempt = QuizAttempt(
             user_id=current_user.id, quiz_id=quiz.id, score=score,
             max_score=maximum, accuracy_percentage=accuracy, xp_earned=score * 10,
-        ))
+        )
+        db.add(attempt)
+        db.flush()
+        db.add_all(
+            [
+                QuizAttemptAnswer(
+                    attempt_id=attempt.id,
+                    quiz_id=quiz.id,
+                    question_index=item.question_index,
+                    selected_answer_index=item.answer_index,
+                    correct_answer_index=int(
+                        quiz.questions_data.get("questions", [])[item.question_index].get(
+                            "answer_index", 0
+                        )
+                    ),
+                    is_correct=correct,
+                )
+                for item, correct in rows
+            ]
+        )
         has_game = db.scalar(select(LevelGame.id).where(LevelGame.node_id == node.id))
         if not has_game:
             node.mastery_score = max(node.mastery_score, accuracy)
@@ -577,6 +750,7 @@ def submit_quiz_session(
     xp_earned = total_score * 10
     current_user.xp += xp_earned
     sync_mastery_tier(current_user)
+    record_quest_progress(db, current_user, "quiz")
     db.commit()
     return QuizSessionAttemptRead(
         score=total_score,
@@ -586,6 +760,153 @@ def submit_quiz_session(
         total_xp=current_user.xp,
         attempts_created=len(grouped),
     )
+
+
+def _history_rows(db: Session, current_user: User, *, course_id=None, quiz_id=None):
+    query = (
+        select(QuizAttempt, Quiz)
+        .join(Quiz, QuizAttempt.quiz_id == Quiz.id)
+        .join(KnowledgeNode, Quiz.node_id == KnowledgeNode.id)
+        .where(QuizAttempt.user_id == current_user.id)
+    )
+    if course_id:
+        query = query.where(KnowledgeNode.course_id == course_id)
+    if quiz_id:
+        query = query.where(Quiz.id == quiz_id)
+    return db.execute(query.order_by(QuizAttempt.completed_at.desc()).limit(100)).all()
+
+
+def _history_read(
+    db: Session, current_user: User, attempt: QuizAttempt, quiz: Quiz
+) -> QuizHistoryRead:
+    incorrect_count = (
+        db.scalar(
+            select(func.count(QuizAttemptAnswer.id)).where(
+                QuizAttemptAnswer.attempt_id == attempt.id,
+                QuizAttemptAnswer.is_correct.is_(False),
+            )
+        )
+        or max(0, attempt.max_score - attempt.score)
+    )
+    attempt_number = (
+        db.scalar(
+            select(func.count(QuizAttempt.id)).where(
+                QuizAttempt.user_id == current_user.id,
+                QuizAttempt.quiz_id == quiz.id,
+                QuizAttempt.completed_at <= attempt.completed_at,
+            )
+        )
+        or 1
+    )
+    best_accuracy = (
+        db.scalar(
+            select(func.max(QuizAttempt.accuracy_percentage)).where(
+                QuizAttempt.user_id == current_user.id,
+                QuizAttempt.quiz_id == quiz.id,
+            )
+        )
+        or 0.0
+    )
+    return QuizHistoryRead(
+        id=attempt.id,
+        quiz_id=quiz.id,
+        quiz_title=quiz.title,
+        difficulty=quiz.difficulty,
+        score=attempt.score,
+        max_score=attempt.max_score,
+        accuracy_percentage=attempt.accuracy_percentage,
+        xp_earned=attempt.xp_earned,
+        incorrect_count=incorrect_count,
+        attempt_number=attempt_number,
+        best_accuracy_percentage=best_accuracy,
+        completed_at=attempt.completed_at,
+    )
+
+
+@router.get("/courses/{course_id}/quiz-attempts", response_model=list[QuizHistoryRead])
+def list_course_quiz_attempts(
+    course_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _owned_course(db, course_id, current_user.id)
+    return [
+        _history_read(db, current_user, attempt, quiz)
+        for attempt, quiz in _history_rows(
+            db, current_user, course_id=course_id
+        )
+    ]
+
+
+@router.get("/quizzes/{quiz_id}/attempts", response_model=list[QuizHistoryRead])
+def list_quiz_attempts(
+    quiz_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    quiz = db.get(Quiz, quiz_id)
+    if not quiz:
+        raise HTTPException(404, "Quiz not found")
+    node = db.get(KnowledgeNode, quiz.node_id)
+    if not node:
+        raise HTTPException(404, "Learning node not found")
+    _owned_course(db, node.course_id, current_user.id)
+    return [
+        _history_read(db, current_user, attempt, item)
+        for attempt, item in _history_rows(db, current_user, quiz_id=quiz_id)
+    ]
+
+
+@router.get("/courses/{course_id}/quiz-mistakes", response_model=list[QuizMistakeRead])
+def list_course_quiz_mistakes(
+    course_id: UUID,
+    limit: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return questions whose most recent recorded answer is still incorrect."""
+    _owned_course(db, course_id, current_user.id)
+    rows = db.execute(
+        select(QuizAttemptAnswer, QuizAttempt, Quiz)
+        .join(QuizAttempt, QuizAttemptAnswer.attempt_id == QuizAttempt.id)
+        .join(Quiz, QuizAttemptAnswer.quiz_id == Quiz.id)
+        .join(KnowledgeNode, Quiz.node_id == KnowledgeNode.id)
+        .where(
+            QuizAttempt.user_id == current_user.id,
+            KnowledgeNode.course_id == course_id,
+        )
+        .order_by(QuizAttempt.completed_at.desc())
+    ).all()
+
+    mistakes: list[QuizMistakeRead] = []
+    seen: set[tuple[UUID, int]] = set()
+    for answer, attempt, quiz in rows:
+        key = (quiz.id, answer.question_index)
+        if key in seen:
+            continue
+        seen.add(key)
+        if answer.is_correct:
+            continue
+        questions = quiz.questions_data.get("questions", [])
+        if answer.question_index >= len(questions):
+            continue
+        question = questions[answer.question_index]
+        mistakes.append(
+            QuizMistakeRead(
+                quiz_id=quiz.id,
+                quiz_title=quiz.title,
+                question_index=answer.question_index,
+                prompt=str(question.get("prompt", "")),
+                options=[str(option) for option in question.get("options", [])],
+                selected_answer_index=answer.selected_answer_index,
+                correct_answer_index=answer.correct_answer_index,
+                explanation=str(question.get("explanation", "")),
+                last_attempted_at=attempt.completed_at,
+            )
+        )
+        if len(mistakes) >= limit:
+            break
+    return mistakes
 
 
 @router.get("/courses/{course_id}/analytics", response_model=CourseAnalyticsRead)

@@ -236,6 +236,32 @@ class QuizAttempt(Base):
     quiz: Mapped[Quiz] = relationship(back_populates="attempts")
 
 
+class QuizAttemptAnswer(Base):
+    """Answer-level history used to review and retry missed questions."""
+
+    __tablename__ = "quiz_attempt_answers"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    attempt_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("quiz_attempts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    quiz_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("quizzes.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    question_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    selected_answer_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    correct_answer_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "attempt_id", "question_index", name="uq_quiz_attempt_answer_question"
+        ),
+    )
+
+
 class Quest(Base):
     __tablename__ = "quests"
     

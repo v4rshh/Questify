@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ...database import get_db
 from ...models import Course, Material, User
 from ...schemas import TutorChatRequest, TutorChatResponse
-from ...services.gamification import GAME_MODE_QUESTION_XP, sync_mastery_tier
+from ...services.gamification import GAME_MODE_QUESTION_XP, record_quest_progress, sync_mastery_tier
 from ...rag.workflow import answer_course_question
 from ..deps import get_current_user
 
@@ -51,8 +51,9 @@ def chat_with_tutor(
     if xp_earned:
         current_user.xp += xp_earned
         sync_mastery_tier(current_user)
-        db.commit()
-        db.refresh(current_user)
+    record_quest_progress(db, current_user, "tutor")
+    db.commit()
+    db.refresh(current_user)
 
     return TutorChatResponse(
         response=result.get("answer", ""),

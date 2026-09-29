@@ -12,6 +12,7 @@ from ...models import Course, Material, User
 from ...rag.documents import SUPPORTED_EXTENSIONS, chunk_sections, extract_sections
 from ...rag.store import get_vector_store
 from ...schemas import CourseCreate, CourseRead, MaterialCreate, MaterialRead
+from ...services.gamification import record_quest_progress
 from ..deps import get_current_user
 
 router = APIRouter(prefix="/courses", tags=["Courses & Materials"])
@@ -119,6 +120,7 @@ async def upload_material(
             raise ValueError("No searchable chunks were created")
         material.status = "completed"
         material.summary = f"Indexed {chunks_created} searchable chunks"
+        record_quest_progress(db, current_user, "material")
         db.commit()
         db.refresh(material)
         return material

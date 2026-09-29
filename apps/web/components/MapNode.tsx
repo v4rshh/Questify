@@ -63,7 +63,7 @@ export default function MapNode(props: LevelProps | TreasureProps) {
             padding: 2px 6px;
             border-radius: 999px;
             background: #fff2bf;
-            font-size: 9px;
+            font-size: 11px;
             white-space: nowrap;
           }
           .treasure:disabled {
@@ -105,6 +105,7 @@ export default function MapNode(props: LevelProps | TreasureProps) {
         onClick={() => !locked && props.onOpen(level)}
         whileHover={!locked ? { y: -5, scale: 1.04 } : undefined}
         whileTap={!locked ? { scale: 0.95 } : undefined}
+        transition={{ type: 'spring', stiffness: 420, damping: 24 }}
         aria-label={`${level.title}, ${level.status}`}
       >
         <span className="node-icon">
@@ -187,6 +188,21 @@ export default function MapNode(props: LevelProps | TreasureProps) {
             0 7px 0 #926322,
             0 11px 16px rgba(87, 57, 15, 0.22);
         }
+        .node.completed::after {
+          content: '';
+          position: absolute;
+          inset: 4px;
+          border-radius: inherit;
+          background: linear-gradient(
+            115deg,
+            transparent 25%,
+            rgba(255, 255, 255, 0.5),
+            transparent 70%
+          );
+          background-size: 220% 100%;
+          animation: node-shine 3.2s ease-in-out infinite;
+          pointer-events: none;
+        }
         .node.locked {
           filter: grayscale(0.75);
           opacity: 0.72;
@@ -210,7 +226,7 @@ export default function MapNode(props: LevelProps | TreasureProps) {
           left: 50%;
           bottom: 4px;
           transform: translateX(-50%);
-          font-size: 8px;
+          font-size: 10px;
           white-space: nowrap;
         }
         .node-label {
@@ -228,7 +244,7 @@ export default function MapNode(props: LevelProps | TreasureProps) {
         .node-label small {
           display: block;
           color: #987446;
-          font-size: 8px;
+          font-size: 11px;
           text-transform: uppercase;
           letter-spacing: 0.08em;
         }
@@ -236,7 +252,7 @@ export default function MapNode(props: LevelProps | TreasureProps) {
           display: block;
           overflow: hidden;
           color: #49311f;
-          font-size: 10px;
+          font-size: 13px;
           line-height: 1.25;
           white-space: nowrap;
           text-overflow: ellipsis;
@@ -252,7 +268,7 @@ export default function MapNode(props: LevelProps | TreasureProps) {
           border-radius: 999px;
           background: #ddcfaa;
           color: #47311f;
-          font-size: 7px;
+          font-size: 10px;
         }
         .progress-button i {
           position: absolute;
@@ -302,14 +318,14 @@ export default function MapNode(props: LevelProps | TreasureProps) {
         .summary b {
           display: block;
           padding-right: 15px;
-          font-size: 12px;
+          font-size: 14px;
         }
         .summary p,
         .summary span {
           display: block;
           margin-top: 5px;
           color: #73583a;
-          font-size: 10px;
+          font-size: 12px;
           line-height: 1.35;
         }
         .enemy {
@@ -343,8 +359,19 @@ export default function MapNode(props: LevelProps | TreasureProps) {
               0 11px 18px rgba(45, 78, 52, 0.26);
           }
         }
+        @keyframes node-shine {
+          0%,
+          60% {
+            background-position: 160% 0;
+          }
+          100% {
+            background-position: -80% 0;
+          }
+        }
         @media (prefers-reduced-motion: reduce) {
-          .node.unlocked {
+          .node.unlocked,
+          .node.completed::after,
+          .treasure.ready:not(.claimed) span {
             animation: none;
           }
         }

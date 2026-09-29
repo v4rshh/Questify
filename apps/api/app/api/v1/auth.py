@@ -7,6 +7,7 @@ from ...database import get_db
 from ...models import User, UserRole, Quest, Achievement
 from ...schemas import PasswordChange, UserCreate, UserRead, UserLogin, Token
 from ...core.security import get_password_hash, verify_password, create_access_token
+from ...services.gamification import ensure_daily_quests
 from ..deps import get_current_user
 from datetime import datetime, timezone, timedelta
 
@@ -87,6 +88,7 @@ def login_user(payload: UserLogin, db: Session = Depends(get_db)):
     else:
         user.streak_count = 1
     user.last_active_date = now
+    ensure_daily_quests(db, user)
     db.commit()
     db.refresh(user)
 

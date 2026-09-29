@@ -237,6 +237,7 @@ export default function ParchmentMapContainer({
           border-radius: 26px;
           background: rgba(255, 249, 224, 0.25);
           box-shadow: inset 0 0 40px rgba(255, 255, 255, 0.3);
+          animation: region-breathe 7s ease-in-out infinite alternate;
         }
         .world-region.world-2 {
           background: rgba(214, 228, 199, 0.28);
@@ -257,6 +258,7 @@ export default function ParchmentMapContainer({
           background: linear-gradient(135deg, #476b4c, #2f4f3d);
           color: #fff;
           box-shadow: 0 5px 0 #263d30;
+          animation: banner-arrive 480ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
         }
         .world-2 .world-banner {
           border-color: #59418a;
@@ -269,7 +271,7 @@ export default function ParchmentMapContainer({
           box-shadow: 0 5px 0 #60391f;
         }
         .world-banner span {
-          font-size: 8px;
+          font-size: 11px;
           font-weight: 900;
           letter-spacing: 0.13em;
           text-transform: uppercase;
@@ -279,13 +281,13 @@ export default function ParchmentMapContainer({
           margin-top: 4px;
           overflow: hidden;
           font-family: Georgia, serif;
-          font-size: 14px;
+          font-size: 17px;
           white-space: nowrap;
           text-overflow: ellipsis;
         }
         .world-banner small {
           margin-top: 3px;
-          font-size: 8px;
+          font-size: 11px;
           opacity: 0.78;
         }
         .trail {
@@ -309,6 +311,7 @@ export default function ParchmentMapContainer({
           stroke-width: 5;
           stroke-dasharray: 8 10;
           animation: trail-march 12s linear infinite;
+          filter: drop-shadow(0 0 2px rgba(255, 244, 198, 0.7));
         }
         .legend {
           position: absolute;
@@ -322,7 +325,7 @@ export default function ParchmentMapContainer({
           border-radius: 999px;
           background: rgba(255, 249, 226, 0.86);
           color: #664c32;
-          font-size: 8px;
+          font-size: 11px;
           font-weight: 800;
         }
         .legend span {
@@ -347,6 +350,19 @@ export default function ParchmentMapContainer({
             stroke-dashoffset: -180;
           }
         }
+        @keyframes banner-arrive {
+          from {
+            opacity: 0;
+            transform: translateY(-8px) scale(0.97);
+          }
+        }
+        @keyframes region-breathe {
+          to {
+            box-shadow:
+              inset 0 0 54px rgba(255, 255, 255, 0.42),
+              0 0 22px rgba(105, 82, 48, 0.07);
+          }
+        }
         @media (max-width: 700px) {
           .map-viewport {
             min-height: 510px;
@@ -360,7 +376,9 @@ export default function ParchmentMapContainer({
           }
         }
         @media (prefers-reduced-motion: reduce) {
-          .trail-line {
+          .trail-line,
+          .world-banner,
+          .world-region {
             animation: none;
           }
         }

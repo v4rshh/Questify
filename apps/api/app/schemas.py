@@ -198,6 +198,33 @@ class QuizAttemptRead(BaseModel):
     completed_at: datetime
 
 
+class QuizHistoryRead(BaseModel):
+    id: UUID
+    quiz_id: UUID
+    quiz_title: str
+    difficulty: str
+    score: int
+    max_score: int
+    accuracy_percentage: float
+    xp_earned: int
+    incorrect_count: int
+    attempt_number: int
+    best_accuracy_percentage: float
+    completed_at: datetime
+
+
+class QuizMistakeRead(BaseModel):
+    quiz_id: UUID
+    quiz_title: str
+    question_index: int
+    prompt: str
+    options: list[str]
+    selected_answer_index: int
+    correct_answer_index: int
+    explanation: str
+    last_attempted_at: datetime
+
+
 class CourseAnalyticsRead(BaseModel):
     course_id: UUID
     total_nodes: int
@@ -207,6 +234,52 @@ class CourseAnalyticsRead(BaseModel):
     completed_quizzes: int
     average_quiz_accuracy: float
     node_mastery: list[KnowledgeNodeRead]
+
+
+class TodayWeakTopicRead(BaseModel):
+    node_id: UUID
+    title: str
+    mastery_score: float
+
+
+class TodayUnfinishedLevelRead(BaseModel):
+    node_id: UUID
+    title: str
+    solved_questions: int
+    total_questions: int
+
+
+class TodayQuizRead(BaseModel):
+    quiz_id: UUID
+    title: str
+    difficulty: str
+    reason: str
+
+
+class TodayQuestRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    title: str
+    description: str
+    xp_reward: int
+    quest_type: str
+    target_count: int
+    current_count: int
+    is_completed: bool
+    expires_at: datetime
+
+
+class TodayStudyPlanRead(BaseModel):
+    course_id: UUID
+    course_title: str
+    requested_minutes: int
+    estimated_minutes: int
+    due_flashcards: int
+    weak_topics: list[TodayWeakTopicRead]
+    unfinished_levels: list[TodayUnfinishedLevelRead]
+    recommended_quiz: TodayQuizRead | None = None
+    active_quest: TodayQuestRead | None = None
 
 
 # Gamification & Analytics Schemas
@@ -222,6 +295,13 @@ class QuestRead(BaseModel):
     current_count: int
     is_completed: bool
     expires_at: datetime
+
+
+class QuestClaimRead(BaseModel):
+    claimed: bool
+    xp_earned: int
+    total_xp: int
+    quest: QuestRead
 
 
 class AchievementRead(BaseModel):

@@ -545,7 +545,7 @@ export default function WorldExplorer() {
         }
         .eyebrow {
           color: #6f8c55;
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 900;
           letter-spacing: 0.14em;
           text-transform: uppercase;
@@ -553,14 +553,14 @@ export default function WorldExplorer() {
         .page-intro h1 {
           margin-top: 5px;
           font:
-            700 29px/1.15 Georgia,
+            700 32px/1.15 Georgia,
             serif;
           color: var(--foreground);
         }
         .page-intro > div > p:last-child {
           margin-top: 6px;
           color: var(--muted);
-          font-size: 12px;
+          font-size: 14px;
         }
         .selectors {
           display: flex;
@@ -570,7 +570,7 @@ export default function WorldExplorer() {
           display: grid;
           gap: 5px;
           color: var(--muted);
-          font-size: 9px;
+          font-size: 11px;
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.07em;
@@ -582,7 +582,7 @@ export default function WorldExplorer() {
           border-radius: 9px;
           background: var(--surface);
           color: var(--foreground);
-          font-size: 11px;
+          font-size: 13px;
           text-transform: none;
           letter-spacing: 0;
         }
@@ -591,7 +591,7 @@ export default function WorldExplorer() {
           justify-content: space-between;
           margin: 0 5px 8px;
           color: var(--muted);
-          font-size: 9px;
+          font-size: 11px;
           font-weight: 700;
         }
         .error {
@@ -604,7 +604,7 @@ export default function WorldExplorer() {
           border-radius: 9px;
           background: #fff0ec;
           color: #913f36;
-          font-size: 11px;
+          font-size: 13px;
         }
         .error > span {
           display: grid;
@@ -649,7 +649,7 @@ export default function WorldExplorer() {
         .empty p {
           max-width: 500px;
           color: #806b53;
-          font-size: 12px;
+          font-size: 14px;
           line-height: 1.6;
         }
         .empty button {
@@ -666,7 +666,7 @@ export default function WorldExplorer() {
         }
         .empty a {
           color: #3d6f50;
-          font-size: 11px;
+          font-size: 13px;
         }
         @media (max-width: 900px) {
           .world-page {
@@ -726,11 +726,13 @@ function RewardPopup({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
     >
       <motion.section
-        initial={{ y: 26, scale: 0.95 }}
+        initial={{ y: 34, scale: 0.9, rotateX: -8 }}
         animate={{ y: 0, scale: 1 }}
         exit={{ y: 20, scale: 0.96 }}
+        transition={{ type: 'spring', stiffness: 280, damping: 22 }}
       >
         <div className="rays" />
         <span className="reward-icon">{icon}</span>
@@ -792,7 +794,7 @@ function RewardPopup({
         .reward-backdrop .kicker {
           position: relative;
           color: #9a722d;
-          font-size: 9px;
+          font-size: 11px;
           font-weight: 900;
           letter-spacing: 0.15em;
           text-transform: uppercase;
@@ -809,7 +811,7 @@ function RewardPopup({
           margin: 7px auto 0;
           max-width: 310px;
           color: #80694c;
-          font-size: 11px;
+          font-size: 13px;
           line-height: 1.5;
         }
         .loot {
@@ -832,7 +834,7 @@ function RewardPopup({
         .loot span {
           display: block;
           color: #9b6c2e;
-          font-size: 8px;
+          font-size: 10px;
           font-weight: 900;
         }
         .loot div + div span {
@@ -841,7 +843,7 @@ function RewardPopup({
         .loot b {
           display: block;
           margin-top: 3px;
-          font-size: 16px;
+          font-size: 18px;
         }
         .reward-backdrop > section > button {
           width: 100%;

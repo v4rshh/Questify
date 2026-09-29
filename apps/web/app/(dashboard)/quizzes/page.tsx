@@ -38,7 +38,30 @@ interface SessionQuestion {
   questionIndex: number;
   question: Question;
 }
-type SessionMode = 'level' | '5' | '10' | 'all';
+interface QuizHistory {
+  id: string;
+  quiz_id: string;
+  quiz_title: string;
+  difficulty: string;
+  score: number;
+  max_score: number;
+  accuracy_percentage: number;
+  xp_earned: number;
+  incorrect_count: number;
+  attempt_number: number;
+  best_accuracy_percentage: number;
+  completed_at: string;
+}
+interface QuizMistake {
+  quiz_id: string;
+  quiz_title: string;
+  question_index: number;
+  prompt: string;
+  options: string[];
+  correct_answer_index: number;
+  explanation: string;
+}
+type SessionMode = 'level' | '5' | '10' | 'all' | 'mistakes';
 
 function shuffled<T>(items: T[]) {
   const next = [...items];
@@ -59,6 +82,8 @@ export default function QuizzesPage() {
   const [position, setPosition] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [attempt, setAttempt] = useState<Attempt | null>(null);
+  const [history, setHistory] = useState<QuizHistory[]>([]);
+  const [mistakes, setMistakes] = useState<QuizMistake[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -76,12 +101,20 @@ export default function QuizzesPage() {
     setQuizzes([]);
     setSelectedQuizId('');
     setAttempt(null);
+    setHistory([]);
+    setMistakes([]);
     setAnswers({});
     setPosition(0);
     setError('');
-    fetchApi<Quiz[]>(`/learning/courses/${courseId}/quizzes`)
-      .then((items) => {
+    Promise.all([
+      fetchApi<Quiz[]>(`/learning/courses/${courseId}/quizzes`),
+      fetchApi<QuizHistory[]>(`/learning/courses/${courseId}/quiz-attempts`),
+      fetchApi<QuizMistake[]>(`/learning/courses/${courseId}/quiz-mistakes`),
+    ])
+      .then(([items, attempts, missed]) => {
         setQuizzes(items);
+        setHistory(attempts);
+        setMistakes(missed);
         setSelectedQuizId(items[0]?.id || '');
       })
       .catch((err) => setError(err.message));
@@ -101,13 +134,31 @@ export default function QuizzesPage() {
     [quizzes],
   );
 
+  const mistakePool = useMemo<SessionQuestion[]>(
+    () =>
+      mistakes.map((mistake) => ({
+        key: `${mistake.quiz_id}:${mistake.question_index}`,
+        quizId: mistake.quiz_id,
+        quizTitle: mistake.quiz_title,
+        questionIndex: mistake.question_index,
+        question: {
+          prompt: mistake.prompt,
+          options: mistake.options,
+          answer_index: mistake.correct_answer_index,
+          explanation: mistake.explanation,
+        },
+      })),
+    [mistakes],
+  );
+
   const session = useMemo(() => {
+    if (mode === 'mistakes') return mistakePool;
     if (mode === 'level') return questionPool.filter((item) => item.quizId === selectedQuizId);
     if (mode === 'all') return questionPool;
     return shuffled(questionPool).slice(0, Math.min(Number(mode), questionPool.length));
     // mixSeed intentionally creates a new randomized practice set.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, questionPool, selectedQuizId, mixSeed]);
+  }, [mistakePool, mode, questionPool, selectedQuizId, mixSeed]);
 
   useEffect(() => {
     setPosition(0);
@@ -140,6 +191,9 @@ export default function QuizzesPage() {
         }),
       });
       setAttempt(result);
+      void fetchApi<QuizHistory[]>(`/learning/courses/${courseId}/quiz-attempts`)
+        .then(setHistory)
+        .catch(() => undefined);
       window.dispatchEvent(new Event('questify:metrics-updated'));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not submit this practice session.');
@@ -149,7 +203,15 @@ export default function QuizzesPage() {
   };
 
   const resetSession = (newMix = false) => {
-    if (newMix && mode !== 'level' && mode !== 'all') setMixSeed((value) => value + 1);
+    if (mode === 'mistakes') {
+      fetchApi<QuizMistake[]>(`/learning/courses/${courseId}/quiz-mistakes`)
+        .then((items) => {
+          setMistakes(items);
+          if (!items.length) setMode('level');
+        })
+        .catch((err) => setError(err.message));
+    }
+    if (newMix && (mode === '5' || mode === '10')) setMixSeed((value) => value + 1);
     else {
       setAnswers({});
       setAttempt(null);
@@ -196,6 +258,9 @@ export default function QuizzesPage() {
                     <option value="5">Quick mix · 5</option>
                     <option value="10">Mixed practice · 10</option>
                     <option value="all">All questions · {questionPool.length}</option>
+                    <option value="mistakes" disabled={!mistakes.length}>
+                      Retry mistakes · {mistakes.length}
+                    </option>
                   </select>
                 </label>
                 <label className={mode !== 'level' ? 'disabled' : ''}>
@@ -212,7 +277,7 @@ export default function QuizzesPage() {
                     ))}
                   </select>
                 </label>
-                {mode !== 'level' && mode !== 'all' && (
+                {(mode === '5' || mode === '10') && (
                   <button className="btn remix" type="button" onClick={() => resetSession(true)}>
                     <Icon name="sparkles" size={14} /> New mix
                   </button>
@@ -345,14 +410,58 @@ export default function QuizzesPage() {
                       </p>
                       <button
                         className="btn btn-primary"
-                        onClick={() => resetSession(mode !== 'level' && mode !== 'all')}
+                        onClick={() => resetSession(mode === '5' || mode === '10')}
                       >
-                        {mode === 'level' || mode === 'all' ? 'Try again' : 'Start a new mix'}
+                        {mode === '5' || mode === '10'
+                          ? 'Start a new mix'
+                          : mode === 'mistakes'
+                            ? 'Refresh mistakes'
+                            : 'Try again'}
                       </button>
                     </div>
                   )}
                 </section>
               )}
+              <section className="history-panel">
+                <header>
+                  <div>
+                    <p className="eyebrow">Attempt history</p>
+                    <h3>Recent quiz results</h3>
+                  </div>
+                  {mistakes.length > 0 && (
+                    <button type="button" className="btn" onClick={() => setMode('mistakes')}>
+                      Retry {mistakes.length} mistake{mistakes.length === 1 ? '' : 's'}
+                    </button>
+                  )}
+                </header>
+                {history.length ? (
+                  <div className="history-list">
+                    {history.slice(0, 8).map((item) => (
+                      <article key={item.id}>
+                        <div>
+                          <strong>{item.quiz_title}</strong>
+                          <span>
+                            {item.difficulty} · Attempt {item.attempt_number} · Best{' '}
+                            {item.best_accuracy_percentage}% ·{' '}
+                            {new Date(item.completed_at).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="history-score">
+                          <b>{item.accuracy_percentage}%</b>
+                          <span>
+                            {item.score}/{item.max_score} · +{item.xp_earned} XP
+                          </span>
+                        </div>
+                        <span className={item.incorrect_count ? 'missed' : 'perfect'}>
+                          {item.incorrect_count ? `${item.incorrect_count} to review` : 'Perfect'}
+                        </span>
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="history-empty">Complete a session to start your history.</p>
+                )}
+              </section>
             </>
           ) : (
             <section className="panel empty">
@@ -628,6 +737,74 @@ export default function QuizzesPage() {
             grid-column: 2;
             grid-row: 1/3;
           }
+          .history-panel {
+            margin-top: 18px;
+            padding: 22px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            background: var(--surface);
+          }
+          .history-panel > header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 15px;
+          }
+          .history-panel h3 {
+            margin-top: 4px;
+            font-size: 18px;
+          }
+          .history-list {
+            display: grid;
+            gap: 8px;
+          }
+          .history-list article {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            align-items: center;
+            gap: 16px;
+            padding: 12px 13px;
+            border-radius: 9px;
+            background: var(--surface-muted);
+          }
+          .history-list article > div {
+            display: grid;
+            gap: 3px;
+            min-width: 0;
+          }
+          .history-list strong {
+            overflow: hidden;
+            font-size: 13px;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+          }
+          .history-list span,
+          .history-empty {
+            color: var(--muted);
+            font-size: 10px;
+          }
+          .history-score {
+            justify-items: end;
+          }
+          .history-score b {
+            color: var(--accent);
+            font-size: 15px;
+          }
+          .history-list article > span {
+            min-width: 76px;
+            padding: 5px 8px;
+            border-radius: 999px;
+            text-align: center;
+          }
+          .history-list .missed {
+            background: #fff0f0;
+            color: #9c4141;
+          }
+          .history-list .perfect {
+            background: #e7f5eb;
+            color: #34724a;
+          }
           .empty {
             display: flex;
             flex-direction: column;
@@ -705,6 +882,13 @@ export default function QuizzesPage() {
             }
             .attempt-result button {
               width: 100%;
+            }
+            .history-list article {
+              grid-template-columns: 1fr auto;
+            }
+            .history-list article > span {
+              grid-column: 1 / -1;
+              justify-self: start;
             }
           }
         `}</style>
