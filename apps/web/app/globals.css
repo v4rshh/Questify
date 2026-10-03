@@ -133,7 +133,7 @@ body {
   min-height: 120px;
 }
 
-.loading-state > div {
+.loading-state>div {
   display: grid;
   gap: 3px;
 }
@@ -161,6 +161,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   *,
   *::before,
   *::after {
@@ -170,21 +171,25 @@ body {
     transition-duration: 1ms !important;
   }
 }
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
 button,
 input,
 textarea,
 select {
   font: inherit;
 }
+
 button {
   cursor: pointer;
 }
+
 a {
   color: inherit;
 }
@@ -203,12 +208,15 @@ h6 {
   width: 8px;
   height: 8px;
 }
+
 ::-webkit-scrollbar-thumb {
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: #d5d5cf;
   border-radius: 999px;
@@ -219,27 +227,38 @@ h6 {
   min-height: 100vh;
   background: var(--background);
 }
+
 .page-content {
   margin-left: 256px;
+  width: calc(100% - 256px);
+  min-width: 0;
   min-height: 100vh;
-  transition: margin-left 0.18s ease;
+  transition:
+    margin-left 0.18s ease,
+    width 0.18s ease;
 }
+
 :root[data-sidebar-collapsed='true'] .page-content {
   margin-left: 48px;
+  width: calc(100% - 48px);
 }
+
 .questify-sidebar-provider {
   display: contents !important;
   min-height: 0 !important;
   width: auto !important;
 }
+
 .questify-shadcn-sidebar [data-sidebar='sidebar'] {
   background: hsl(var(--sidebar-background));
 }
+
 .questify-mobile-sidebar-trigger {
   width: 38px;
   height: 38px;
   border-radius: 9px;
 }
+
 .group[data-collapsible='icon'] .questify-shadcn-sidebar .theme-toggle {
   display: grid;
   place-items: center;
@@ -247,15 +266,19 @@ h6 {
   min-height: 32px;
   padding: 0;
 }
+
 .group[data-collapsible='icon'] .questify-shadcn-sidebar .theme-toggle span {
   display: none;
 }
+
 .serif {
   font-family: 'Instrument Serif', Georgia, serif;
 }
+
 .muted {
   color: var(--muted);
 }
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -267,6 +290,7 @@ h6 {
   white-space: nowrap;
   border: 0;
 }
+
 .panel,
 .glass-card {
   background: var(--surface);
@@ -274,6 +298,7 @@ h6 {
   border-radius: 14px;
   box-shadow: var(--shadow-sm);
 }
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -289,10 +314,12 @@ h6 {
   font-weight: 600;
   transition: 0.18s ease;
 }
+
 .btn:hover {
   border-color: #aaa9a2;
   background: var(--surface-subtle);
 }
+
 .btn-primary,
 .gradient-btn {
   display: inline-flex;
@@ -308,20 +335,24 @@ h6 {
   font-weight: 600;
   cursor: pointer;
 }
+
 .btn-primary:hover,
 .gradient-btn:hover {
   border-color: var(--accent-ink);
   background: var(--accent-ink);
 }
+
 .btn-ghost {
   border-color: transparent;
   background: transparent;
   color: var(--muted-strong);
 }
+
 .btn-ghost:hover {
   background: var(--surface-muted);
   border-color: transparent;
 }
+
 .input {
   width: 100%;
   border: 1px solid var(--border);
@@ -332,13 +363,16 @@ h6 {
   padding: 11px 12px;
   transition: 0.18s ease;
 }
+
 .input:focus {
   border-color: #9ab8a8;
   box-shadow: 0 0 0 3px rgba(94, 145, 117, 0.12);
 }
+
 .gradient-text {
   color: var(--accent);
 }
+
 .btn-secondary {
   display: inline-flex;
   align-items: center;
@@ -352,6 +386,7 @@ h6 {
   color: var(--foreground);
   cursor: pointer;
 }
+
 .badge-tier {
   display: inline-flex;
   align-items: center;
@@ -361,11 +396,13 @@ h6 {
   font-size: 11px;
   font-weight: 700;
 }
+
 .badge-gold {
   border-color: #e7c894;
   background: #fff8e8;
   color: #91662a;
 }
+
 .badge-bronze,
 .badge-silver,
 .badge-platinum,
@@ -373,12 +410,14 @@ h6 {
   background: var(--surface-subtle);
   color: var(--muted-strong);
 }
+
 /* Keep the remaining learning views readable while they transition from the
    original dark demo palette to the neutral workspace palette. */
 main .glass-card {
   background: var(--surface) !important;
   color: var(--foreground);
 }
+
 main .glass-card h1,
 main .glass-card h2,
 main .glass-card h3,
@@ -392,42 +431,53 @@ main .glass-card div {
 :root[data-theme='dark'] .app-sidebar {
   background: #1c1d1a;
 }
+
 :root[data-theme='dark'] .menu-button:hover,
 :root[data-theme='dark'] .menu-button.active,
 :root[data-theme='dark'] .account-row:hover {
   background: #2b2d28;
 }
+
 :root[data-theme='dark'] .chat-topbar {
   background: rgba(23, 24, 22, 0.88);
 }
+
 :root[data-theme='dark'] .new-chat-button {
   background: var(--surface);
 }
+
 :root[data-theme='dark'] .quick-prompt:hover {
   background: #25332a;
 }
+
 :root[data-theme='dark'] .context-card,
 :root[data-theme='dark'] .composer {
   background: var(--surface);
 }
+
 :root[data-theme='dark'] .world-card {
   border-color: #456653;
   background: #223429;
 }
+
 :root[data-theme='dark'] .citation {
   border-color: #456653;
   background: #223429;
   color: var(--accent-ink);
 }
+
 :root[data-theme='dark'] .auth-story {
   background: #1f2d24;
   border-color: #354b3c;
 }
+
 :root[data-theme='dark'] .story-copy h1,
 :root[data-theme='dark'] .auth-brand {
   color: #e5f0e8;
 }
+
 @media (max-width: 767px) {
+
   .page-content,
   :root[data-sidebar-collapsed='true'] .page-content {
     margin-left: 0;
@@ -453,21 +503,25 @@ main .glass-card div {
   color: #f59e0b;
   border: 1px solid rgba(245, 158, 11, 0.4);
 }
+
 .badge-silver {
   background: rgba(148, 163, 184, 0.2);
   color: #cbd5e1;
   border: 1px solid rgba(203, 213, 225, 0.4);
 }
+
 .badge-gold {
   background: rgba(234, 179, 8, 0.2);
   color: #facc15;
   border: 1px solid rgba(250, 204, 21, 0.4);
 }
+
 .badge-platinum {
   background: rgba(6, 182, 212, 0.2);
   color: #22d3ee;
   border: 1px solid rgba(34, 211, 238, 0.4);
 }
+
 .badge-diamond {
   background: rgba(217, 70, 239, 0.2);
   color: #f0abfc;
