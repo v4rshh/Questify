@@ -5,6 +5,8 @@ import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
 import { Icon } from '@/components/Icon';
 import { fetchApi } from '@/lib/api';
+import { LoadingIndicator, LoadingState } from '@/components/LoadingIndicator';
+import MotionPage from '@/components/MotionPage';
 
 interface Course {
   id: string;
@@ -85,6 +87,7 @@ export default function QuizzesPage() {
   const [history, setHistory] = useState<QuizHistory[]>([]);
   const [mistakes, setMistakes] = useState<QuizMistake[]>([]);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -92,8 +95,12 @@ export default function QuizzesPage() {
       .then((items) => {
         setCourses(items);
         if (items.length) setCourseId(items[0].id);
+        else setLoading(false);
       })
-      .catch((err) => setError(err.message));
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -106,6 +113,7 @@ export default function QuizzesPage() {
     setAnswers({});
     setPosition(0);
     setError('');
+    setLoading(true);
     Promise.all([
       fetchApi<Quiz[]>(`/learning/courses/${courseId}/quizzes`),
       fetchApi<QuizHistory[]>(`/learning/courses/${courseId}/quiz-attempts`),
@@ -117,7 +125,8 @@ export default function QuizzesPage() {
         setMistakes(missed);
         setSelectedQuizId(items[0]?.id || '');
       })
-      .catch((err) => setError(err.message));
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
   }, [courseId]);
 
   const questionPool = useMemo<SessionQuestion[]>(
@@ -224,7 +233,7 @@ export default function QuizzesPage() {
       <Sidebar />
       <div className="page-content">
         <Header title="Quizzes" />
-        <main className="quiz-page">
+        <MotionPage className="quiz-page">
           <div className="quiz-top">
             <div>
               <p className="eyebrow">Knowledge check</p>
@@ -245,7 +254,12 @@ export default function QuizzesPage() {
             </select>
           </div>
           {error && <p className="error-message">{error}</p>}
-          {quizzes.length ? (
+          {loading ? (
+            <LoadingState
+              title="Loading your quizzes…"
+              detail="Collecting questions, attempts, and review history."
+            />
+          ) : quizzes.length ? (
             <>
               <section className="session-controls">
                 <label>
@@ -385,6 +399,7 @@ export default function QuizzesPage() {
                           disabled={!complete || busy}
                           onClick={submit}
                         >
+                          {busy && <LoadingIndicator label="Checking answers" size="small" />}
                           {busy
                             ? 'Checking…'
                             : complete
@@ -470,7 +485,7 @@ export default function QuizzesPage() {
               <p>Generate a learning world to create level quizzes for this workspace.</p>
             </section>
           )}
-        </main>
+        </MotionPage>
         <style jsx>{`
           .quiz-page {
             max-width: 940px;

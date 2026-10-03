@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchApi } from '@/lib/api';
+import { LoadingState } from './LoadingIndicator';
 
 type SessionState = 'checking' | 'authorized' | 'redirecting';
 
@@ -55,13 +56,17 @@ export default function AuthSessionGate({ children }: AuthSessionGateProps) {
 
   if (sessionState !== 'authorized') {
     return (
-      <main className="session-check" role="status" aria-live="polite">
-        <div className="session-check__mark">Q</div>
-        <p>
-          {sessionState === 'redirecting'
-            ? 'Returning to sign in…'
-            : 'Checking your study session…'}
-        </p>
+      <main className="session-check">
+        <LoadingState
+          title={
+            sessionState === 'redirecting' ? 'Returning to sign in…' : 'Preparing your dashboard…'
+          }
+          detail={
+            sessionState === 'redirecting'
+              ? 'Your session needs to be renewed.'
+              : 'Checking your study session and learning progress.'
+          }
+        />
         <style jsx>{`
           .session-check {
             display: grid;
@@ -72,18 +77,6 @@ export default function AuthSessionGate({ children }: AuthSessionGateProps) {
             background: var(--background);
             color: var(--muted);
             font-size: 13px;
-          }
-          .session-check__mark {
-            display: grid;
-            width: 38px;
-            height: 38px;
-            place-items: center;
-            border-radius: 10px;
-            background: var(--accent);
-            color: white;
-            font-family: Georgia, serif;
-            font-size: 20px;
-            font-weight: 700;
           }
         `}</style>
       </main>

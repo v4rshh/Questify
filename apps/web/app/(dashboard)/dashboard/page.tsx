@@ -8,6 +8,9 @@ import { fetchApi } from '@/lib/api';
 import { generateWorld as requestWorld } from '@/lib/world-generation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { motion, useReducedMotion } from 'framer-motion';
+import { LoadingIndicator } from '@/components/LoadingIndicator';
+import MotionPage from '@/components/MotionPage';
 
 interface Course {
   id: string;
@@ -105,6 +108,7 @@ function titleFromFilename(filename: string) {
 }
 
 export default function DashboardPage() {
+  const reduceMotion = useReducedMotion();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState('');
@@ -544,7 +548,7 @@ export default function DashboardPage() {
         isCheckingWorld={isResolvingContext}
         onCreateWorld={generateWorld}
       />
-      <main className="page-content chat-page">
+      <MotionPage className="page-content chat-page">
         <header className="chat-topbar">
           <div className="mobile-brand">
             <span className="brand-mark-small">Q</span> Questify
@@ -603,22 +607,31 @@ export default function DashboardPage() {
                 </p>
                 <div className="quick-prompts">
                   {quickPrompts.map((item) => (
-                    <button
+                    <motion.button
                       type="button"
                       key={item.title}
                       className="quick-prompt"
                       onClick={() => sendMessage(item.prompt)}
+                      whileHover={reduceMotion ? undefined : { y: -3 }}
+                      whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+                      transition={{ type: 'spring', stiffness: 360, damping: 28 }}
                     >
                       <span>{item.title}</span>
                       <Icon name="arrowUp" size={14} />
-                    </button>
+                    </motion.button>
                   ))}
                 </div>
               </div>
             )}
             <div className="message-list" aria-live="polite">
               {messages.map((message) => (
-                <div key={message.id} className={`message-row ${message.sender}`}>
+                <motion.div
+                  key={message.id}
+                  className={`message-row ${message.sender}`}
+                  initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                >
                   <div className={`message-avatar ${message.sender}`}>
                     <Icon name={message.sender === 'assistant' ? 'sparkles' : 'user'} size={15} />
                   </div>
@@ -648,7 +661,7 @@ export default function DashboardPage() {
                       </div>
                     )}
                   </div>
-                </div>
+                </motion.div>
               ))}
               {isSending && (
                 <div className="message-row assistant">
@@ -667,7 +680,12 @@ export default function DashboardPage() {
               )}
             </div>
             {pendingWorld && (
-              <div className="world-card">
+              <motion.div
+                className="world-card"
+                initial={reduceMotion ? false : { opacity: 0, y: 14, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+              >
                 <div className="world-card-icon">
                   <Icon name="sparkles" size={18} />
                 </div>
@@ -683,10 +701,11 @@ export default function DashboardPage() {
                   onClick={generateWorld}
                   disabled={isGeneratingWorld}
                 >
+                  {isGeneratingWorld && <LoadingIndicator label="Generating world" size="small" />}
                   {isGeneratingWorld ? 'Generating…' : 'Generate world'}{' '}
-                  <Icon name="arrowUp" size={14} />
+                  {!isGeneratingWorld && <Icon name="arrowUp" size={14} />}
                 </button>
-              </div>
+              </motion.div>
             )}
             {generationMessage && (
               <p role="status" style={{ padding: 12, color: 'var(--accent)' }}>
@@ -707,7 +726,11 @@ export default function DashboardPage() {
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isUploading}
                 >
-                  <Icon name="plus" size={20} />
+                  {isUploading ? (
+                    <LoadingIndicator label="Indexing resource" size="small" />
+                  ) : (
+                    <Icon name="plus" size={20} />
+                  )}
                 </button>
                 <input
                   ref={fileInputRef}
@@ -859,7 +882,7 @@ export default function DashboardPage() {
             )}
           </aside>
         </section>
-      </main>
+      </MotionPage>
       {deleteTarget && (
         <div
           className="confirm-backdrop"

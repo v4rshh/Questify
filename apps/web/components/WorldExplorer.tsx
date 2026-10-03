@@ -23,6 +23,8 @@ import type {
 } from './quest-map.types';
 import { fetchApi } from '@/lib/api';
 import { generateWorld, GenerationStatus } from '@/lib/world-generation';
+import { LoadingIndicator, LoadingState } from './LoadingIndicator';
+import MotionPage from './MotionPage';
 
 const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -42,7 +44,7 @@ export default function WorldExplorer() {
   const [material, setMaterial] = useState('');
   const [world, setWorld] = useState<World | null>(null);
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [generation, setGeneration] = useState<GenerationStatus | null>(null);
   const [selectedLevel, setSelectedLevel] = useState<MapLevel | null>(null);
@@ -70,9 +72,15 @@ export default function WorldExplorer() {
           setCourse(
             items.find((item) => item.id === params.get('course'))?.id || items[0]?.id || '',
           );
+          if (!items.length) setLoading(false);
         }
       })
-      .catch((err) => active && setError(err.message));
+      .catch((err) => {
+        if (active) {
+          setError(err.message);
+          setLoading(false);
+        }
+      });
     return () => {
       active = false;
     };
@@ -84,7 +92,8 @@ export default function WorldExplorer() {
     setMaterial('');
     setWorld(null);
     setProgress({});
-    if (course)
+    if (course) {
+      setLoading(true);
       fetchApi<Material[]>(`/courses/${course}/materials`)
         .then((items) => {
           if (!active) return;
@@ -93,12 +102,19 @@ export default function WorldExplorer() {
           setMaterial(
             ready.find((item) => item.id === params.get('material'))?.id || ready[0]?.id || '',
           );
+          if (!ready.length) setLoading(false);
         })
-        .catch((err) => active && setError(err.message));
+        .catch((err) => {
+          if (active) {
+            setError(err.message);
+            setLoading(false);
+          }
+        });
+    } else if (courses.length) setLoading(false);
     return () => {
       active = false;
     };
-  }, [course, params]);
+  }, [course, courses.length, params]);
 
   const loadWorld = useCallback(
     async (reposition = true) => {
@@ -396,7 +412,7 @@ export default function WorldExplorer() {
       <Sidebar />
       <div className="page-content">
         <Header title="Learning world" />
-        <main className="world-page">
+        <MotionPage className="world-page">
           <div className="page-intro">
             <div>
               <p className="eyebrow">Learn · Play · Progress</p>
@@ -447,7 +463,10 @@ export default function WorldExplorer() {
             </div>
           )}
           {loading ? (
-            <section className="loading-map">Unrolling your map…</section>
+            <LoadingState
+              title="Unrolling your world…"
+              detail="Loading levels, paths, and your latest progress."
+            />
           ) : world?.generated ? (
             <>
               <div className="map-meta">
@@ -484,12 +503,13 @@ export default function WorldExplorer() {
                   : 'Generate a source-grounded learning world with trials, treasures, enemies, and review checkpoints.'}
               </p>
               <button disabled={!material || working} onClick={generate}>
+                {working && <LoadingIndicator label="Building world" size="small" />}
                 {working ? 'Building world…' : 'Generate adventure map'}
               </button>
               {!materials.length && <a href="/dashboard">Upload a resource first</a>}
             </section>
           )}
-        </main>
+        </MotionPage>
         <QuizModal
           open={quizOpen}
           level={selectedLevel}

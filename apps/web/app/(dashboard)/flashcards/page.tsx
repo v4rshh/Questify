@@ -6,6 +6,8 @@ import Header from '@/components/Header';
 import { Icon } from '@/components/Icon';
 import Sidebar from '@/components/Sidebar';
 import { fetchApi } from '@/lib/api';
+import { LoadingIndicator, LoadingState } from '@/components/LoadingIndicator';
+import MotionPage from '@/components/MotionPage';
 
 interface Course {
   id: string;
@@ -48,6 +50,7 @@ export default function FlashcardsPage() {
   const [flipped, setFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [reviewingQuality, setReviewingQuality] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [reviewed, setReviewed] = useState(0);
@@ -137,6 +140,7 @@ export default function FlashcardsPage() {
     if (!card || busy) return;
 
     setBusy(true);
+    setReviewingQuality(quality);
     setError('');
     setNotice('');
 
@@ -162,6 +166,7 @@ export default function FlashcardsPage() {
       setError(reviewError instanceof Error ? reviewError.message : 'Could not save review.');
     } finally {
       setBusy(false);
+      setReviewingQuality(null);
     }
   }
 
@@ -174,7 +179,7 @@ export default function FlashcardsPage() {
       <Sidebar />
       <div className="page-content">
         <Header title="Flashcards" />
-        <main className="flash-page">
+        <MotionPage className="flash-page">
           <div className="flash-top">
             <div>
               <p className="eyebrow">Active recall</p>
@@ -241,10 +246,10 @@ export default function FlashcardsPage() {
           {notice && <p className="notice">{notice}</p>}
 
           {loading ? (
-            <section className="panel empty" aria-live="polite">
-              <Icon name="bookOpen" size={22} />
-              <h3>Loading your deck…</h3>
-            </section>
+            <LoadingState
+              title="Loading your flashcards…"
+              detail="Building a focused review session from this workspace."
+            />
           ) : sessionComplete ? (
             <section className="panel session-summary">
               <Icon name="trophy" size={28} />
@@ -307,6 +312,9 @@ export default function FlashcardsPage() {
                   disabled={busy || !flipped}
                   onClick={() => review(1)}
                 >
+                  {reviewingQuality === 1 && (
+                    <LoadingIndicator label="Saving review" size="small" />
+                  )}
                   Again <span>1 day</span>
                 </button>
                 <button
@@ -315,6 +323,9 @@ export default function FlashcardsPage() {
                   disabled={busy || !flipped}
                   onClick={() => review(4)}
                 >
+                  {reviewingQuality === 4 && (
+                    <LoadingIndicator label="Saving review" size="small" />
+                  )}
                   Good <span>Save progress</span>
                 </button>
                 <button
@@ -323,7 +334,12 @@ export default function FlashcardsPage() {
                   disabled={busy || !flipped}
                   onClick={() => review(5)}
                 >
-                  Easy <Icon name="arrowUp" size={14} />
+                  {reviewingQuality === 5 ? (
+                    <LoadingIndicator label="Saving review" size="small" />
+                  ) : (
+                    <Icon name="arrowUp" size={14} />
+                  )}
+                  Easy
                 </button>
               </div>
             </section>
@@ -338,7 +354,7 @@ export default function FlashcardsPage() {
               </p>
             </section>
           )}
-        </main>
+        </MotionPage>
       </div>
 
       <style jsx>{`

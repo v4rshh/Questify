@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchApi } from '@/lib/api';
 import { Icon } from '@/components/Icon';
+import { LoadingIndicator } from '@/components/LoadingIndicator';
+import MotionPage from '@/components/MotionPage';
 
 interface AuthResponse {
   access_token: string;
@@ -39,13 +41,12 @@ export default function LandingAuthPage() {
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Authentication failed.');
-    } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <main className="auth-page">
+    <MotionPage className="auth-page">
       <section className="auth-story">
         <div className="auth-brand">
           <span>Q</span> Questify
@@ -118,9 +119,20 @@ export default function LandingAuthPage() {
               />
             </label>
             {error && <div className="auth-error">{error}</div>}
-            <button className="btn btn-primary auth-submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Please wait…' : isLogin ? 'Continue to Questify' : 'Create account'}
-              <Icon name="arrowUp" size={16} />
+            <button
+              className="btn btn-primary auth-submit"
+              disabled={isSubmitting}
+              aria-busy={isSubmitting}
+            >
+              {isSubmitting && <LoadingIndicator label="Opening your dashboard" size="small" />}
+              <span>
+                {isSubmitting
+                  ? 'Preparing your dashboard…'
+                  : isLogin
+                    ? 'Continue to Questify'
+                    : 'Create account'}
+              </span>
+              {!isSubmitting && <Icon name="arrowUp" size={16} />}
             </button>
           </form>
           <p className="auth-toggle">
@@ -313,6 +325,6 @@ export default function LandingAuthPage() {
           }
         }
       `}</style>
-    </main>
+    </MotionPage>
   );
 }

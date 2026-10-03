@@ -22,6 +22,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Icon } from './Icon';
+import { LoadingIndicator } from './LoadingIndicator';
 import ThemeToggle from './ThemeToggle';
 
 export interface ChatThread {
@@ -67,12 +68,17 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(true);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   useEffect(() => {
     const savedOpen = localStorage.getItem('questify_sidebar_collapsed') !== 'true';
     setOpen(savedOpen);
     document.documentElement.dataset.sidebarCollapsed = String(!savedOpen);
   }, []);
+
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
 
   const setSidebarOpen = (nextOpen: boolean) => {
     setOpen(nextOpen);
@@ -158,7 +164,11 @@ export default function Sidebar({
                   }
                   className="h-9 border border-dashed border-sidebar-border text-sidebar-foreground hover:border-sidebar-primary hover:bg-sidebar-accent"
                 >
-                  <Icon name="sparkles" size={16} />
+                  {isCreatingWorld || isCheckingWorld ? (
+                    <LoadingIndicator label="Loading learning world" size="small" />
+                  ) : (
+                    <Icon name="sparkles" size={16} />
+                  )}
                   <span>
                     {isCheckingWorld
                       ? 'Checking workspace…'
@@ -189,9 +199,14 @@ export default function Sidebar({
                     >
                       <Link
                         href={item.href}
+                        onClick={() => setPendingHref(item.href)}
                         aria-current={pathname === item.href ? 'page' : undefined}
                       >
-                        <Icon name={item.icon} size={17} />
+                        {pendingHref === item.href ? (
+                          <LoadingIndicator label={`Loading ${item.label}`} size="small" />
+                        ) : (
+                          <Icon name={item.icon} size={17} />
+                        )}
                         <span>{item.label}</span>
                       </Link>
                     </SidebarMenuButton>
@@ -240,9 +255,14 @@ export default function Sidebar({
                               <SidebarMenuSubButton asChild className="pr-8">
                                 <Link
                                   href={`/roadmap?course=${thread.courseId || ''}&material=${thread.materialId || ''}`}
+                                  onClick={() => setPendingHref('/roadmap')}
                                   title={thread.worldTitle}
                                 >
-                                  <Icon name="library" size={14} />
+                                  {pendingHref === '/roadmap' ? (
+                                    <LoadingIndicator label="Loading world" size="small" />
+                                  ) : (
+                                    <Icon name="library" size={14} />
+                                  )}
                                   <span>{thread.worldTitle}</span>
                                 </Link>
                               </SidebarMenuSubButton>
