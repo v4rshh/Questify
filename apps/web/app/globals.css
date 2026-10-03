@@ -522,7 +522,7 @@ main .glass-card div {
 }
 
 :root {
-  --ui-scale: 1.15;
+  --ui-scale: 1;
 }
 
 .app-shell {
