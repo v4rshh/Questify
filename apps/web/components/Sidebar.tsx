@@ -17,8 +17,8 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  SidebarProvider,
   SidebarRail,
+  SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Icon } from './Icon';

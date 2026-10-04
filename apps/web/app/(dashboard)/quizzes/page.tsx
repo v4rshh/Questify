@@ -487,10 +487,13 @@ export default function QuizzesPage() {
           )}
         </MotionPage>
         <style jsx>{`
-          .quiz-page {
+          :global(.quiz-page) {
+            width: 100%;
+            min-width: 0;
             max-width: 940px;
             margin: 0 auto;
             padding: 38px;
+            overflow-x: clip;
           }
           .quiz-top {
             display: flex;
@@ -498,6 +501,14 @@ export default function QuizzesPage() {
             justify-content: space-between;
             gap: 24px;
             margin-bottom: 24px;
+          }
+          .quiz-top > div,
+          .quiz-card,
+          .question,
+          .options,
+          .options button,
+          .options span {
+            min-width: 0;
           }
           .eyebrow {
             color: var(--accent);
@@ -645,6 +656,7 @@ export default function QuizzesPage() {
           .question > h3 {
             font-size: 18px;
             line-height: 1.5;
+            overflow-wrap: anywhere;
           }
           .options {
             display: grid;
@@ -688,6 +700,7 @@ export default function QuizzesPage() {
           }
           .options span {
             flex: 1;
+            overflow-wrap: anywhere;
           }
           .options b {
             font-size: 18px;
@@ -848,8 +861,8 @@ export default function QuizzesPage() {
             color: var(--danger);
             font-size: 12px;
           }
-          @media (max-width: 700px) {
-            .quiz-page {
+          @media (max-width: 1024px) {
+            :global(.quiz-page) {
               padding: 24px 14px 90px;
             }
             .quiz-top {

@@ -10,6 +10,8 @@
   --sidebar-primary-foreground: 0 0% 100%;
   --sidebar-accent: 140 24% 91%;
   --sidebar-accent-foreground: 145 35% 22%;
+  --sidebar-width: 16rem;
+  --sidebar-width-icon: 3rem;
   --sidebar-border: 60 7% 86%;
   --sidebar-ring: 145 32% 40%;
   --background: #fbfbfa;
@@ -133,7 +135,7 @@ body {
   min-height: 120px;
 }
 
-.loading-state>div {
+.loading-state > div {
   display: grid;
   gap: 3px;
 }
@@ -161,7 +163,6 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   *,
   *::before,
   *::after {
@@ -224,29 +225,36 @@ h6 {
 
 /* Glass Card Utility */
 .app-shell {
+  display: flex;
+  width: 100%;
   min-height: 100vh;
   background: var(--background);
 }
 
-.page-content {
-  margin-left: 256px;
-  width: calc(100% - 256px);
-  min-width: 0;
-  min-height: 100vh;
-  transition:
-    margin-left 0.18s ease,
-    width 0.18s ease;
-}
-
-:root[data-sidebar-collapsed='true'] .page-content {
-  margin-left: 48px;
-  width: calc(100% - 48px);
-}
-
 .questify-sidebar-provider {
   display: contents !important;
-  min-height: 0 !important;
-  width: auto !important;
+}
+
+/* the outer .group.peer holds the gap div; never let it shrink */
+.app-shell > .questify-sidebar-provider > .group {
+  flex: 0 0 auto;
+}
+
+.page-content {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 100vh;
+  margin-left: 0;
+  padding-left: 0;
+  overflow-x: clip;
+}
+
+/* The sidebar wrapper is a flex item next to .page-content. Never allow its
+   layout gap to shrink below the width of the fixed sidebar. */
+.app-shell > .questify-sidebar-provider > .group[data-side] {
+  flex: 0 0 auto;
 }
 
 .questify-shadcn-sidebar [data-sidebar='sidebar'] {
@@ -476,11 +484,12 @@ main .glass-card div {
   color: #e5f0e8;
 }
 
-@media (max-width: 767px) {
+:root[data-sidebar-collapsed='true'] .page-content {
+  margin-left: var(--sidebar-width-icon);
+}
 
-  .page-content,
-  :root[data-sidebar-collapsed='true'] .page-content {
-    margin-left: 0;
+@media (max-width: 767px) {
+  .page-content {
     padding-bottom: 64px;
   }
 }
@@ -573,12 +582,4 @@ main .glass-card div {
 .flip-card-back {
   transform: rotateY(180deg);
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95));
-}
-
-:root {
-  --ui-scale: 1;
-}
-
-.app-shell {
-  zoom: var(--ui-scale);
 }

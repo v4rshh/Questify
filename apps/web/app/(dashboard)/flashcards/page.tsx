@@ -358,11 +358,14 @@ export default function FlashcardsPage() {
       </div>
 
       <style jsx>{`
-        .flash-page {
+        :global(.flash-page) {
+          width: 100%;
+          min-width: 0;
           max-width: 850px;
           margin: 0 auto;
           padding: 38px;
           font-size: 16px;
+          overflow-x: clip;
         }
         .flash-top {
           display: flex;
@@ -533,10 +536,12 @@ export default function FlashcardsPage() {
           text-transform: uppercase;
         }
         .card-copy {
+          min-width: 0;
           max-width: 620px;
           font-size: 30px;
           line-height: 1.35;
           letter-spacing: -0.035em;
+          overflow-wrap: anywhere;
         }
         .card-hint {
           margin-top: 16px;
@@ -636,8 +641,8 @@ export default function FlashcardsPage() {
             transition-delay: 0ms;
           }
         }
-        @media (max-width: 700px) {
-          .flash-page {
+        @media (max-width: 1024px) {
+          :global(.flash-page) {
             padding: 24px 16px;
           }
           .flash-top {

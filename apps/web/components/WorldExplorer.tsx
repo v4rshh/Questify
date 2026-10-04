@@ -23,6 +23,7 @@ import type {
 } from './quest-map.types';
 import { fetchApi } from '@/lib/api';
 import { generateWorld, GenerationStatus } from '@/lib/world-generation';
+import { useWorldAudio } from '@/hooks/use-world-audio';
 import { LoadingIndicator, LoadingState } from './LoadingIndicator';
 import MotionPage from './MotionPage';
 
@@ -60,6 +61,7 @@ export default function WorldExplorer() {
   const [milestone, setMilestone] = useState<{ level: MapLevel; reward: Reward } | null>(null);
   const [treasure, setTreasure] = useState<{ level: MapLevel; reward: Reward } | null>(null);
   const [review, setReview] = useState<ReviewData | null>(null);
+  const { muted, playEffect, toggleMuted } = useWorldAudio(avatarAction);
 
   const mapLevels = useMemo(() => buildMapLevels(world?.nodes || []), [world?.nodes]);
 
@@ -221,6 +223,7 @@ export default function WorldExplorer() {
   }
 
   async function openLevel(level: MapLevel) {
+    playEffect('level');
     setSelectedLevel(level);
     setQuizOpen(true);
     setGame(null);
@@ -255,6 +258,7 @@ export default function WorldExplorer() {
     mode: 'hint' | 'concept',
     questionIndex?: number,
   ) {
+    playEffect('wizard');
     const result = await fetchApi<WizardHelp>(`/learning/levels/${level.id}/wizard-help`, {
       method: 'POST',
       body: JSON.stringify({ mode, question_index: questionIndex }),
@@ -270,6 +274,7 @@ export default function WorldExplorer() {
       const reward = await fetchApi<Reward>(`/learning/levels/${selectedLevel.id}/reward`, {
         method: 'POST',
       });
+      if (reward.claimed || reward.gems_gained > 0) playEffect('reward');
       setMilestone({ level: selectedLevel, reward });
       setProgress((current) => ({ ...current, [selectedLevel.id]: completedGame.adventure }));
       window.dispatchEvent(new Event('questify:metrics-updated'));
@@ -318,6 +323,7 @@ export default function WorldExplorer() {
       const reward = await fetchApi<Reward>(`/learning/levels/${level.id}/treasure`, {
         method: 'POST',
       });
+      if (reward.claimed || reward.gems_gained > 0) playEffect('reward');
       setTreasure({ level, reward });
       setProgress((current) => ({
         ...current,
@@ -423,6 +429,17 @@ export default function WorldExplorer() {
               </p>
             </div>
             <div className="selectors">
+              <button
+                type="button"
+                className="audio-toggle"
+                onClick={toggleMuted}
+                aria-pressed={muted}
+                aria-label={muted ? 'Unmute world sounds' : 'Mute all world sounds'}
+                title={muted ? 'Unmute world sounds' : 'Mute all world sounds'}
+              >
+                <span aria-hidden="true">{muted ? '🔇' : '🔊'}</span>
+                {muted ? 'Sound off' : 'Sound on'}
+              </button>
               <label>
                 Workspace
                 <select
@@ -551,7 +568,9 @@ export default function WorldExplorer() {
         {review && <ReviewSummary data={review} onContinue={continueReview} onRetry={retryWorld} />}
       </div>
       <style jsx>{`
-        .world-page {
+        :global(.world-page) {
+          width: 100%;
+          min-width: 0;
           max-width: 1500px;
           margin: auto;
           padding: 25px 30px 42px;
@@ -562,6 +581,11 @@ export default function WorldExplorer() {
           justify-content: space-between;
           gap: 24px;
           margin-bottom: 18px;
+        }
+        .page-intro > div,
+        .selectors,
+        .selectors label {
+          min-width: 0;
         }
         .eyebrow {
           color: #6f8c55;
@@ -584,7 +608,32 @@ export default function WorldExplorer() {
         }
         .selectors {
           display: flex;
+          align-items: flex-end;
           gap: 10px;
+        }
+        .audio-toggle {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 7px;
+          min-height: 38px;
+          padding: 8px 11px;
+          border: 1px solid var(--border-strong);
+          border-radius: 9px;
+          background: var(--surface);
+          color: var(--foreground);
+          font-size: 11px;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+        .audio-toggle:hover {
+          border-color: var(--accent);
+          background: var(--accent-soft);
+          color: var(--accent);
+        }
+        .audio-toggle span {
+          font-size: 15px;
+          line-height: 1;
         }
         .selectors label {
           display: grid;
@@ -688,8 +737,8 @@ export default function WorldExplorer() {
           color: #3d6f50;
           font-size: 13px;
         }
-        @media (max-width: 900px) {
-          .world-page {
+        @media (max-width: 1024px) {
+          :global(.world-page) {
             padding: 20px 16px;
           }
           .page-intro {
@@ -698,6 +747,7 @@ export default function WorldExplorer() {
           }
           .selectors {
             width: 100%;
+            flex-wrap: wrap;
           }
           .selectors label {
             flex: 1;
@@ -707,7 +757,7 @@ export default function WorldExplorer() {
           }
         }
         @media (max-width: 600px) {
-          .world-page {
+          :global(.world-page) {
             padding: 15px 10px 90px;
           }
           .page-intro h1 {
