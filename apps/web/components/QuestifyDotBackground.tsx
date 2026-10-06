@@ -23,7 +23,7 @@ export default function QuestifyDotBackground() {
         dotRadius={5}
         dotSpacing={15}
         bulgeStrength={38}
-        glowRadius={20}
+        glowRadius={0}
         sparkle={false}
         waveAmplitude={0}
         cursorRadius={320}
