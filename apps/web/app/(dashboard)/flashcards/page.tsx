@@ -33,6 +33,12 @@ interface ReviewResult {
   xp_earned: number;
 }
 
+interface FlashcardDraft {
+  front: string;
+  back: string;
+  hint: string;
+}
+
 type DeckScope = 'all' | 'due' | 'difficult';
 type SessionSize = '5' | '10' | '20' | 'all';
 
@@ -58,6 +64,9 @@ export default function FlashcardsPage() {
   const [recallStreak, setRecallStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [sessionComplete, setSessionComplete] = useState(false);
+  const [editingCardId, setEditingCardId] = useState('');
+  const [cardDraft, setCardDraft] = useState<FlashcardDraft | null>(null);
+  const [editBusy, setEditBusy] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,14 +94,31 @@ export default function FlashcardsPage() {
   }, []);
 
   useEffect(() => {
-    if (!courseId) return;
+    if (!courseId) {
+      setTopics([]);
+      return;
+    }
+    let cancelled = false;
     fetchApi<{ node_mastery: Topic[] }>(`/learning/courses/${courseId}/analytics`)
-      .then((analytics) => setTopics(analytics.node_mastery))
-      .catch(() => setTopics([]));
+      .then((analytics) => {
+        if (!cancelled) setTopics(analytics.node_mastery);
+      })
+      .catch(() => {
+        if (!cancelled) setTopics([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [courseId]);
 
   useEffect(() => {
-    if (!courseId) return;
+    if (!courseId) {
+      setCards([]);
+      setLoading(false);
+      setIndex(0);
+      setSessionComplete(false);
+      return;
+    }
 
     let cancelled = false;
     setLoading(true);
@@ -105,6 +131,8 @@ export default function FlashcardsPage() {
     setRecallStreak(0);
     setBestStreak(0);
     setSessionComplete(false);
+    setEditingCardId('');
+    setCardDraft(null);
 
     async function loadCards() {
       try {
@@ -174,6 +202,42 @@ export default function FlashcardsPage() {
     setReloadSeed((value) => value + 1);
   }
 
+  function beginCardEdit(value: Flashcard) {
+    setEditingCardId(value.id);
+    setCardDraft({ front: value.front, back: value.back, hint: value.hint || '' });
+    setFlipped(false);
+    setError('');
+    setNotice('');
+  }
+
+  async function saveCardEdit() {
+    if (!card || !cardDraft || editBusy) return;
+    if (!cardDraft.front.trim() || !cardDraft.back.trim()) {
+      setError('The flashcard needs both a question and an answer.');
+      return;
+    }
+    setEditBusy(true);
+    setError('');
+    try {
+      const updated = await fetchApi<Flashcard>(`/learning/flashcards/${card.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          front: cardDraft.front,
+          back: cardDraft.back,
+          hint: cardDraft.hint || null,
+        }),
+      });
+      setCards((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setEditingCardId('');
+      setCardDraft(null);
+      setNotice('Flashcard updated. Its review schedule was preserved.');
+    } catch (editError) {
+      setError(editError instanceof Error ? editError.message : 'Could not update this flashcard.');
+    } finally {
+      setEditBusy(false);
+    }
+  }
+
   return (
     <div className="app-shell">
       <Sidebar />
@@ -189,7 +253,10 @@ export default function FlashcardsPage() {
               aria-label="Choose workspace"
               className="course-select"
               value={courseId}
-              onChange={(event) => setCourseId(event.target.value)}
+              onChange={(event) => {
+                setCourseId(event.target.value);
+                setTopicId('');
+              }}
             >
               <option value="">Choose workspace</option>
               {courses.map((course) => (
@@ -280,32 +347,99 @@ export default function FlashcardsPage() {
                   Review interval: {card.interval_days} day{card.interval_days === 1 ? '' : 's'}
                 </span>
                 <span>Recall streak: {recallStreak}</span>
+                {editingCardId !== card.id && (
+                  <button type="button" onClick={() => beginCardEdit(card)}>
+                    Edit card
+                  </button>
+                )}
               </div>
 
-              <div className="card-scene" key={card.id}>
-                <button
-                  type="button"
-                  className={`study-card ${flipped ? 'flipped' : ''}`}
-                  aria-label={flipped ? 'Show the question' : 'Reveal the answer'}
-                  aria-pressed={flipped}
-                  onClick={() => setFlipped((value) => !value)}
-                >
-                  <span className="card-face card-front" aria-hidden={flipped}>
-                    <span className="card-label">Question</span>
-                    <strong className="card-copy">{card.front}</strong>
-                    {card.hint && <span className="card-hint">Hint: {card.hint}</span>}
-                    <span className="card-help">Select the card to reveal the answer.</span>
-                  </span>
+              {editingCardId === card.id && cardDraft ? (
+                <div className="card-editor">
+                  <label>
+                    <span>Question</span>
+                    <textarea
+                      value={cardDraft.front}
+                      onChange={(event) =>
+                        setCardDraft((draft) =>
+                          draft ? { ...draft, front: event.target.value } : draft,
+                        )
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>Answer</span>
+                    <textarea
+                      value={cardDraft.back}
+                      onChange={(event) =>
+                        setCardDraft((draft) =>
+                          draft ? { ...draft, back: event.target.value } : draft,
+                        )
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>Hint (optional)</span>
+                    <textarea
+                      value={cardDraft.hint}
+                      onChange={(event) =>
+                        setCardDraft((draft) =>
+                          draft ? { ...draft, hint: event.target.value } : draft,
+                        )
+                      }
+                    />
+                  </label>
+                  <div>
+                    <button
+                      type="button"
+                      className="btn"
+                      disabled={editBusy}
+                      onClick={() => {
+                        setEditingCardId('');
+                        setCardDraft(null);
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={editBusy}
+                      onClick={saveCardEdit}
+                    >
+                      {editBusy ? 'Saving…' : 'Save card'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="card-scene" key={card.id}>
+                  <button
+                    type="button"
+                    className={`study-card ${flipped ? 'flipped' : ''}`}
+                    aria-label={flipped ? 'Show the question' : 'Reveal the answer'}
+                    aria-pressed={flipped}
+                    onClick={() => setFlipped((value) => !value)}
+                  >
+                    <span className="card-face card-front" aria-hidden={flipped}>
+                      <span className="card-label">Question</span>
+                      <strong className="card-copy">{card.front}</strong>
+                      {card.hint && <span className="card-hint">Hint: {card.hint}</span>}
+                      <span className="card-help">Select the card to reveal the answer.</span>
+                    </span>
 
-                  <span className="card-face card-back" aria-hidden={!flipped}>
-                    <span className="card-label">Answer</span>
-                    <strong className="card-copy">{card.back}</strong>
-                    <span className="card-help">Rate how easily you recalled it.</span>
-                  </span>
-                </button>
-              </div>
+                    <span className="card-face card-back" aria-hidden={!flipped}>
+                      <span className="card-label">Answer</span>
+                      <strong className="card-copy">{card.back}</strong>
+                      <span className="card-help">Rate how easily you recalled it.</span>
+                    </span>
+                  </button>
+                </div>
+              )}
 
-              <div className={`review-actions ${flipped ? 'visible' : ''}`} aria-hidden={!flipped}>
+              <div
+                className={`review-actions ${flipped && !editingCardId ? 'visible' : ''}`}
+                aria-hidden={!flipped || Boolean(editingCardId)}
+              >
                 <button
                   type="button"
                   className="btn review-again"
@@ -364,7 +498,7 @@ export default function FlashcardsPage() {
           max-width: 850px;
           margin: 0 auto;
           padding: 38px;
-          font-size: 16px;
+          font-size: 17px;
           overflow-x: clip;
         }
         .flash-top {
@@ -375,14 +509,14 @@ export default function FlashcardsPage() {
         }
         .eyebrow {
           color: var(--accent);
-          font-size: 13px;
+          font-size: 15px;
           font-weight: 700;
           letter-spacing: 0.09em;
           text-transform: uppercase;
         }
         .flash-top h2 {
           margin-top: 6px;
-          font-size: 29px;
+          font-size: 30px;
           letter-spacing: -0.045em;
         }
         .course-select {
@@ -392,7 +526,7 @@ export default function FlashcardsPage() {
           border-radius: 9px;
           background: var(--surface);
           color: var(--foreground);
-          font-size: 15px;
+          font-size: 16px;
         }
         .deck-controls {
           display: grid;
@@ -411,7 +545,7 @@ export default function FlashcardsPage() {
         }
         .deck-controls label > span {
           color: var(--muted);
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 800;
           letter-spacing: 0.07em;
           text-transform: uppercase;
@@ -438,10 +572,55 @@ export default function FlashcardsPage() {
         }
         .deck-meta {
           display: flex;
+          align-items: center;
           justify-content: space-between;
+          gap: 10px;
           margin-bottom: 11px;
           color: var(--muted);
-          font-size: 12px;
+          font-size: 14px;
+        }
+        .deck-meta button {
+          margin-left: auto;
+          border: 0;
+          background: transparent;
+          color: var(--accent);
+          font: inherit;
+          font-weight: 700;
+          cursor: pointer;
+        }
+        .card-editor {
+          display: grid;
+          gap: 14px;
+          padding: 24px;
+          border: 1px solid var(--border);
+          border-radius: 15px;
+          background: var(--surface);
+        }
+        .card-editor label {
+          display: grid;
+          gap: 6px;
+        }
+        .card-editor label span {
+          color: var(--muted);
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+        }
+        .card-editor textarea {
+          min-height: 82px;
+          padding: 11px 12px;
+          border: 1px solid var(--border);
+          border-radius: 9px;
+          background: var(--surface-muted);
+          color: var(--foreground);
+          font: inherit;
+          resize: vertical;
+        }
+        .card-editor > div {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
         }
         .session-summary {
           display: grid;
@@ -454,7 +633,7 @@ export default function FlashcardsPage() {
         }
         .session-summary h3 {
           color: var(--foreground);
-          font-size: 27px;
+          font-size: 28px;
         }
         .session-summary > div {
           display: flex;
@@ -468,11 +647,11 @@ export default function FlashcardsPage() {
           border-radius: 10px;
           background: var(--surface-muted);
           color: var(--muted);
-          font-size: 11px;
+          font-size: 13px;
         }
         .session-summary > div b {
           color: var(--foreground);
-          font-size: 18px;
+          font-size: 19px;
         }
         .card-scene {
           min-height: 350px;
@@ -530,7 +709,7 @@ export default function FlashcardsPage() {
         .card-label {
           margin-bottom: 18px;
           color: var(--accent);
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 700;
           letter-spacing: 0.1em;
           text-transform: uppercase;
@@ -538,7 +717,7 @@ export default function FlashcardsPage() {
         .card-copy {
           min-width: 0;
           max-width: 620px;
-          font-size: 30px;
+          font-size: 31px;
           line-height: 1.35;
           letter-spacing: -0.035em;
           overflow-wrap: anywhere;
@@ -546,13 +725,13 @@ export default function FlashcardsPage() {
         .card-hint {
           margin-top: 16px;
           color: var(--muted);
-          font-size: 12px;
+          font-size: 14px;
           font-style: italic;
         }
         .card-help {
           margin-top: 20px;
           color: var(--muted);
-          font-size: 12px;
+          font-size: 14px;
         }
         .review-actions {
           display: flex;
@@ -573,12 +752,12 @@ export default function FlashcardsPage() {
         }
         .review-actions .btn {
           min-width: 128px;
-          font-size: 16px;
+          font-size: 17px;
         }
         .review-actions .btn span {
           display: block;
           color: inherit;
-          font-size: 15px;
+          font-size: 16px;
           font-weight: 400;
         }
         .review-again {
@@ -602,11 +781,11 @@ export default function FlashcardsPage() {
         }
         .empty h3 {
           color: var(--foreground);
-          font-size: 20px;
+          font-size: 21px;
         }
         .empty p {
           color: var(--muted);
-          font-size: 13px;
+          font-size: 15px;
           line-height: 1.55;
         }
         .error-message,
@@ -614,7 +793,7 @@ export default function FlashcardsPage() {
           margin-bottom: 12px;
           padding: 10px 12px;
           border-radius: 8px;
-          font-size: 12px;
+          font-size: 14px;
         }
         .error-message {
           border: 1px solid #e7caca;
@@ -663,7 +842,7 @@ export default function FlashcardsPage() {
             padding: 24px;
           }
           .card-copy {
-            font-size: 21px;
+            font-size: 22px;
           }
           .review-actions {
             align-items: stretch;

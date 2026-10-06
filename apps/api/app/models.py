@@ -262,6 +262,33 @@ class QuizAttemptAnswer(Base):
     )
 
 
+class TutorChallenge(Base):
+    """A single-use challenge issued from the dashboard tutor.
+
+    Keeping the answer server-side prevents the chat response from revealing it,
+    while the answered flag makes the XP reward safe to claim only once.
+    """
+
+    __tablename__ = "tutor_challenges"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    course_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("courses.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    challenge_data: Mapped[dict] = mapped_column(JSON, nullable=False)
+    selected_answer_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_correct: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class Quest(Base):
     __tablename__ = "quests"
     

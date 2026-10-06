@@ -40,6 +40,8 @@ def _run(material_id):
     def progress(percent, message):
         with SessionLocal() as db:
             job = db.get(WorldGenerationJob, material_id)
+            if not job:
+                raise RuntimeError(f"Generation job for material {material_id} no longer exists")
             job.status = "running"
             if percent is not None:
                 job.progress = percent
@@ -50,20 +52,29 @@ def _run(material_id):
         progress(0, "Reading your resource")
         with SessionLocal() as db:
             job = db.get(WorldGenerationJob, material_id)
+            if not job:
+                raise RuntimeError(f"Generation job for material {material_id} no longer exists")
             material = db.get(Material, material_id)
+            if not material:
+                raise RuntimeError(f"Material {material_id} no longer exists")
             user = db.get(User, job.user_id)
+            if not user:
+                raise RuntimeError(f"User {job.user_id} no longer exists")
             build_world(material.course_id, WorldGenerateRequest(material_id=material_id), db, user, progress)
         with SessionLocal() as db:
             job = db.get(WorldGenerationJob, material_id)
+            if not job:
+                raise RuntimeError(f"Generation job for material {material_id} no longer exists")
             job.status, job.progress, job.message = "completed", 100, "Your world is ready"
             db.commit()
     except Exception as exc:
         logger.exception("World generation failed for material %s", material_id)
         with SessionLocal() as db:
             job = db.get(WorldGenerationJob, material_id)
-            job.status = "failed"
-            job.message = getattr(exc, "detail", "Generation could not finish. Retry to resume saved stages.")
-            db.commit()
+            if job:
+                job.status = "failed"
+                job.message = getattr(exc, "detail", "Generation could not finish. Retry to resume saved stages.")
+                db.commit()
     finally:
         file_lock.release()
         with lock:
@@ -75,7 +86,11 @@ def enqueue(material_id):
         if material_id in active:
             return
         active.add(material_id)
-        executor.submit(_run, material_id)
+        try:
+            executor.submit(_run, material_id)
+        except Exception:
+            active.discard(material_id)
+            raise
 
 
 def resume_jobs():

@@ -103,10 +103,10 @@ export default function Sidebar({
                 Q
               </span>
               <span className="min-w-0 group-data-[collapsible=icon]:hidden">
-                <strong className="block truncate text-sm font-semibold tracking-tight">
+                <strong className="block truncate text-[15px] font-semibold tracking-tight">
                   Questify
                 </strong>
-                <small className="block truncate text-[10px] text-sidebar-foreground/65">
+                <small className="block truncate text-xs text-sidebar-foreground/65">
                   Study workspace
                 </small>
               </span>
@@ -176,7 +176,7 @@ export default function Sidebar({
                         ? 'Creating world…'
                         : 'Create world'}
                   </span>
-                  <small className="ml-auto text-[10px] text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">
+                  <small className="ml-auto text-xs text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">
                     {isCheckingWorld ? 'Wait' : canCreateWorld ? 'Ready' : 'Upload'}
                   </small>
                 </SidebarMenuButton>
@@ -185,7 +185,7 @@ export default function Sidebar({
           </SidebarGroup>
 
           <SidebarGroup className="mt-4 p-0">
-            <SidebarGroupLabel className="px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/55">
+            <SidebarGroupLabel className="px-2 text-xs font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/55">
               Workspace
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -218,7 +218,7 @@ export default function Sidebar({
 
           {onSelectThread && (
             <SidebarGroup className="mt-4 min-h-0 flex-1 p-0">
-              <SidebarGroupLabel className="px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/55">
+              <SidebarGroupLabel className="px-2 text-xs font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/55">
                 Recent chats
               </SidebarGroupLabel>
               <SidebarGroupContent>
@@ -287,7 +287,7 @@ export default function Sidebar({
                       </SidebarMenuItem>
                     ))
                   ) : (
-                    <p className="px-2 py-2 text-xs leading-5 text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">
+                    <p className="px-2 py-2 text-sm leading-5 text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">
                       Your chats will appear here.
                     </p>
                   )}
@@ -311,8 +311,8 @@ export default function Sidebar({
                     <Icon name="user" size={13} />
                   </span>
                   <span className="group-data-[collapsible=icon]:hidden">
-                    <strong className="block text-xs font-medium">My profile</strong>
-                    <small className="block text-[10px] text-sidebar-foreground/55">
+                    <strong className="block text-sm font-medium">My profile</strong>
+                    <small className="block text-xs text-sidebar-foreground/55">
                       Progress & security
                     </small>
                   </span>

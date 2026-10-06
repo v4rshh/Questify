@@ -176,3 +176,80 @@ def answer_course_question(
             "grounded": False,
         }
     )
+
+
+def generate_course_challenge(
+    *, question: str, user_id: str, course_id: str, has_indexed_material: bool
+) -> dict:
+    """Create one answerable MCQ, grounded in the active course when possible."""
+    chunks = get_vector_store().search(
+        query=question,
+        user_id=user_id,
+        course_id=course_id,
+    )
+    if has_indexed_material and not chunks:
+        raise ValueError("No relevant course excerpts were found for this challenge")
+
+    citations = []
+    context_parts = []
+    for index, chunk in enumerate(chunks[:5], start=1):
+        location = f", page {chunk.page}" if chunk.page is not None else ""
+        context_parts.append(f"[Source {index}: {chunk.source}{location}]\n{chunk.content}")
+        citations.append(
+            {
+                "source": chunk.source,
+                "page": chunk.page,
+                "excerpt": chunk.content[:300],
+                "chunk_index": chunk.chunk_index,
+            }
+        )
+
+    grounding = (
+        "Use only the course excerpts below. The explanation may cite [Source N].\n\n"
+        + "\n\n---\n\n".join(context_parts)
+        if context_parts
+        else "No course material is attached, so create a useful general-knowledge study challenge."
+    )
+    prompt = f"""Create one multiple-choice learning challenge related to the learner's request.
+Return only a JSON object with exactly these keys:
+{{"prompt":"question", "options":["A","B","C","D"], "answer_index":0, "explanation":"why the answer is correct"}}
+There must be exactly four distinct, plausible options. answer_index must be a zero-based integer from 0 to 3. Do not put the answer in the question.
+
+Learner request: {question}
+
+{grounding}"""
+    raw = chat_completion(
+        [
+            {
+                "role": "system",
+                "content": "You create concise study challenges and return strict JSON only.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.35,
+        max_tokens=700,
+    ).strip()
+    if raw.startswith("```"):
+        raw = raw.strip("`").removeprefix("json").strip()
+    challenge = json.loads(raw)
+    options = challenge.get("options")
+    answer_index = challenge.get("answer_index")
+    if (
+        not str(challenge.get("prompt", "")).strip()
+        or not isinstance(options, list)
+        or len(options) != 4
+        or any(not str(option).strip() for option in options)
+        or len({str(option).strip() for option in options}) != 4
+        or not isinstance(answer_index, int)
+        or not 0 <= answer_index < 4
+        or not str(challenge.get("explanation", "")).strip()
+    ):
+        raise ValueError("The tutor returned an invalid game challenge")
+    return {
+        "prompt": str(challenge["prompt"]).strip(),
+        "options": [str(option).strip() for option in options],
+        "answer_index": answer_index,
+        "explanation": str(challenge["explanation"]).strip(),
+        "citations": citations,
+        "grounded": bool(context_parts),
+    }

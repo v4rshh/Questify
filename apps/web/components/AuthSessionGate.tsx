@@ -76,7 +76,7 @@ export default function AuthSessionGate({ children }: AuthSessionGateProps) {
             gap: 12px;
             background: var(--background);
             color: var(--muted);
-            font-size: 13px;
+            font-size: 15px;
           }
         `}</style>
       </main>

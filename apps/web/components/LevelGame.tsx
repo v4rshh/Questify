@@ -174,14 +174,14 @@ export default function LevelGame({
           gap: 16px;
         }
         .game-heading h2 {
-          font-size: 23px;
+          font-size: 24px;
           margin-top: 6px;
         }
         .game-heading small,
         small,
         .game-caption {
           color: var(--muted);
-          font-size: 12px;
+          font-size: 14px;
         }
         .game-heading strong {
           color: var(--accent);

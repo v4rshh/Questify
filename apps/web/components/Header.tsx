@@ -89,11 +89,11 @@ export default function Header({
         }
         .header-eyebrow {
           color: var(--muted);
-          font-size: 11px;
+          font-size: 13px;
           margin-bottom: 3px;
         }
         h1 {
-          font-size: 20px;
+          font-size: 21px;
           line-height: 1;
           font-weight: 700;
         }
@@ -107,7 +107,7 @@ export default function Header({
           align-items: center;
           gap: 6px;
           color: var(--muted-strong);
-          font-size: 12px;
+          font-size: 14px;
         }
         .metric:first-child {
           color: var(--warm);
@@ -120,7 +120,7 @@ export default function Header({
           border: 1px solid #d8d8d1;
           border-radius: 999px;
           color: var(--muted-strong);
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 600;
         }
         .header-avatar {

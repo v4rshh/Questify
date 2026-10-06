@@ -142,13 +142,13 @@ export default function WizardDialogueBox({
           border: 0;
           background: transparent;
           color: #7d6348;
-          font-size: 18px;
+          font-size: 19px;
         }
         .wizard-bubble > b {
           display: block;
           padding-right: 12px;
           color: #6844a7;
-          font-size: 11px;
+          font-size: 13px;
           letter-spacing: 0.08em;
           text-transform: uppercase;
         }
@@ -177,7 +177,7 @@ export default function WizardDialogueBox({
           display: block;
           margin-top: 10px;
           color: #7659a8;
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 800;
         }
         .wizard-error {

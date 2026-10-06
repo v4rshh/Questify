@@ -94,6 +94,12 @@ export default function WorldExplorer() {
     setMaterial('');
     setWorld(null);
     setProgress({});
+    setSelectedLevel(null);
+    setGame(null);
+    setQuizOpen(false);
+    setMilestone(null);
+    setTreasure(null);
+    setReview(null);
     if (course) {
       setLoading(true);
       fetchApi<Material[]>(`/courses/${course}/materials`)
@@ -119,11 +125,12 @@ export default function WorldExplorer() {
   }, [course, courses.length, params]);
 
   const loadWorld = useCallback(
-    async (reposition = true) => {
+    async (reposition = true, shouldApply: () => boolean = () => true) => {
       if (!course || !material) return null;
       const value = await fetchApi<World>(
         `/learning/courses/${course}/world?material_id=${material}`,
       );
+      if (!shouldApply()) return value;
       setWorld(value);
       const mapped = buildMapLevels(value.nodes);
       const current =
@@ -147,7 +154,7 @@ export default function WorldExplorer() {
     setGeneration(null);
     if (!material || !course) return;
     setLoading(true);
-    loadWorld()
+    loadWorld(true, () => active)
       .catch((err) => active && setError(err.message))
       .finally(() => active && setLoading(false));
     return () => {
@@ -187,7 +194,7 @@ export default function WorldExplorer() {
         );
         if (!active) return;
         setGeneration(status);
-        if (status.status === 'completed') await loadWorld();
+        if (status.status === 'completed') await loadWorld(true, () => active);
         else if (status.status === 'failed') setError(status.message);
         else if (status.status === 'running' || status.status === 'queued')
           timer = setTimeout(poll, 2500);
@@ -589,7 +596,7 @@ export default function WorldExplorer() {
         }
         .eyebrow {
           color: #6f8c55;
-          font-size: 12px;
+          font-size: 14px;
           font-weight: 900;
           letter-spacing: 0.14em;
           text-transform: uppercase;
@@ -604,7 +611,7 @@ export default function WorldExplorer() {
         .page-intro > div > p:last-child {
           margin-top: 6px;
           color: var(--muted);
-          font-size: 14px;
+          font-size: 15px;
         }
         .selectors {
           display: flex;
@@ -622,7 +629,7 @@ export default function WorldExplorer() {
           border-radius: 9px;
           background: var(--surface);
           color: var(--foreground);
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 800;
           white-space: nowrap;
         }
@@ -632,14 +639,14 @@ export default function WorldExplorer() {
           color: var(--accent);
         }
         .audio-toggle span {
-          font-size: 15px;
+          font-size: 16px;
           line-height: 1;
         }
         .selectors label {
           display: grid;
           gap: 5px;
           color: var(--muted);
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.07em;
@@ -651,7 +658,7 @@ export default function WorldExplorer() {
           border-radius: 9px;
           background: var(--surface);
           color: var(--foreground);
-          font-size: 13px;
+          font-size: 15px;
           text-transform: none;
           letter-spacing: 0;
         }
@@ -660,7 +667,7 @@ export default function WorldExplorer() {
           justify-content: space-between;
           margin: 0 5px 8px;
           color: var(--muted);
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 700;
         }
         .error {
@@ -673,7 +680,7 @@ export default function WorldExplorer() {
           border-radius: 9px;
           background: #fff0ec;
           color: #913f36;
-          font-size: 13px;
+          font-size: 15px;
         }
         .error > span {
           display: grid;
@@ -690,7 +697,7 @@ export default function WorldExplorer() {
           border: 0;
           background: transparent;
           color: inherit;
-          font-size: 17px;
+          font-size: 18px;
         }
         .loading-map,
         .empty {
@@ -718,7 +725,7 @@ export default function WorldExplorer() {
         .empty p {
           max-width: 500px;
           color: #806b53;
-          font-size: 14px;
+          font-size: 15px;
           line-height: 1.6;
         }
         .empty button {
@@ -735,7 +742,7 @@ export default function WorldExplorer() {
         }
         .empty a {
           color: #3d6f50;
-          font-size: 13px;
+          font-size: 15px;
         }
         @media (max-width: 1024px) {
           :global(.world-page) {
@@ -761,7 +768,7 @@ export default function WorldExplorer() {
             padding: 15px 10px 90px;
           }
           .page-intro h1 {
-            font-size: 24px;
+            font-size: 25px;
           }
           .selectors {
             flex-direction: column;
@@ -864,7 +871,7 @@ function RewardPopup({
         .reward-backdrop .kicker {
           position: relative;
           color: #9a722d;
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 900;
           letter-spacing: 0.15em;
           text-transform: uppercase;
@@ -881,7 +888,7 @@ function RewardPopup({
           margin: 7px auto 0;
           max-width: 310px;
           color: #80694c;
-          font-size: 13px;
+          font-size: 15px;
           line-height: 1.5;
         }
         .loot {
@@ -904,7 +911,7 @@ function RewardPopup({
         .loot span {
           display: block;
           color: #9b6c2e;
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 900;
         }
         .loot div + div span {
@@ -913,7 +920,7 @@ function RewardPopup({
         .loot b {
           display: block;
           margin-top: 3px;
-          font-size: 18px;
+          font-size: 19px;
         }
         .reward-backdrop > section > button {
           width: 100%;

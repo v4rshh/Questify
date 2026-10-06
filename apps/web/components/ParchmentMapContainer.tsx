@@ -271,7 +271,7 @@ export default function ParchmentMapContainer({
           box-shadow: 0 5px 0 #60391f;
         }
         .world-banner span {
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 900;
           letter-spacing: 0.13em;
           text-transform: uppercase;
@@ -281,13 +281,13 @@ export default function ParchmentMapContainer({
           margin-top: 4px;
           overflow: hidden;
           font-family: Georgia, serif;
-          font-size: 17px;
+          font-size: 18px;
           white-space: nowrap;
           text-overflow: ellipsis;
         }
         .world-banner small {
           margin-top: 3px;
-          font-size: 11px;
+          font-size: 13px;
           opacity: 0.78;
         }
         .trail {
@@ -325,7 +325,7 @@ export default function ParchmentMapContainer({
           border-radius: 999px;
           background: rgba(255, 249, 226, 0.86);
           color: #664c32;
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 800;
         }
         .legend span {

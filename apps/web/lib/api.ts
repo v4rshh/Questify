@@ -28,5 +28,10 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
     throw new Error(errorData.detail || `Request failed with status ${response.status}`);
   }
 
-  return response.json();
+  if (response.status === 204) return undefined as T;
+
+  const body = await response.text();
+  if (!body) return undefined as T;
+
+  return JSON.parse(body) as T;
 }

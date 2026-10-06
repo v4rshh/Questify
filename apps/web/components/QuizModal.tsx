@@ -314,7 +314,7 @@ export default function QuizModal({
               border-radius: 50%;
               background: #fff5dd;
               color: #775b3e;
-              font-size: 22px;
+              font-size: 23px;
             }
             .progress {
               flex: 1;
@@ -332,7 +332,7 @@ export default function QuizModal({
             }
             .quiz-scroll header > span {
               color: #856d51;
-              font-size: 11px;
+              font-size: 13px;
               font-weight: 800;
             }
             .hint-banner {
@@ -361,24 +361,24 @@ export default function QuizModal({
             .hint-banner b {
               display: block;
               color: #6154bd;
-              font-size: 10px;
+              font-size: 12px;
               letter-spacing: 0.08em;
               text-transform: uppercase;
             }
             .hint-banner p {
               margin-top: 3px;
-              font-size: 11px;
+              font-size: 13px;
               line-height: 1.4;
             }
             .hint-banner small {
               display: block;
               margin-top: 4px;
               color: #786ea8;
-              font-size: 9px;
+              font-size: 11px;
               font-weight: 800;
             }
             .hint-banner > strong {
-              font-size: 18px;
+              font-size: 19px;
             }
             .wizard-face {
               position: relative;
@@ -412,7 +412,7 @@ export default function QuizModal({
             }
             .quest-heading > span {
               color: #987240;
-              font-size: 10px;
+              font-size: 12px;
               font-weight: 900;
               letter-spacing: 0.12em;
               text-transform: uppercase;
@@ -420,18 +420,18 @@ export default function QuizModal({
             .quest-heading h2 {
               margin-top: 5px;
               font-family: Georgia, serif;
-              font-size: 23px;
+              font-size: 24px;
               line-height: 1.2;
             }
             .quest-heading p {
               margin-top: 7px;
               color: #80694e;
-              font-size: 12px;
+              font-size: 14px;
               line-height: 1.5;
             }
             .prompt {
               margin: 22px 0 15px;
-              font-size: 17px;
+              font-size: 18px;
               line-height: 1.45;
             }
             .options {
@@ -472,22 +472,22 @@ export default function QuizModal({
               height: 29px;
               border: 1px solid #b8a98d;
               border-radius: 50%;
-              font-size: 11px;
+              font-size: 13px;
               font-style: normal;
               font-weight: 900;
             }
             .options span {
               flex: 1;
-              font-size: 13px;
+              font-size: 15px;
               font-weight: 650;
             }
             .options b {
-              font-size: 18px;
+              font-size: 19px;
             }
             .source {
               margin: 12px 2px;
               color: #9a866d;
-              font-size: 10px;
+              font-size: 12px;
             }
             .submit,
             .already-complete button {
@@ -533,12 +533,12 @@ export default function QuizModal({
               background: #b5574b;
             }
             .feedback b {
-              font-size: 13px;
+              font-size: 15px;
             }
             .feedback p {
               margin-top: 4px;
               color: #6f5a43;
-              font-size: 11px;
+              font-size: 13px;
               line-height: 1.45;
             }
             .feedback button {
@@ -550,7 +550,7 @@ export default function QuizModal({
               border-radius: 8px;
               background: #3b8057;
               color: white;
-              font-size: 11px;
+              font-size: 13px;
               font-weight: 800;
             }
             .already-complete {
@@ -562,17 +562,17 @@ export default function QuizModal({
             }
             .already-complete h3 {
               font-family: Georgia, serif;
-              font-size: 22px;
+              font-size: 23px;
             }
             .already-complete p {
               margin-top: 6px;
               color: #806b52;
-              font-size: 12px;
+              font-size: 14px;
             }
             .error {
               margin-top: 12px;
               color: #a43f35;
-              font-size: 12px;
+              font-size: 14px;
             }
             .loading {
               padding: 65px 20px;
@@ -610,10 +610,10 @@ export default function QuizModal({
                 border-radius: 22px 22px 0 0;
               }
               .quest-heading h2 {
-                font-size: 20px;
+                font-size: 21px;
               }
               .prompt {
-                font-size: 15px;
+                font-size: 16px;
               }
               .options button {
                 min-height: 50px;

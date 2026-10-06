@@ -62,6 +62,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordBusy, setPasswordBusy] = useState(false);
@@ -105,9 +106,14 @@ export default function ProfilePage() {
     try {
       const result = await fetchApi<{ message: string }>('/auth/password', {
         method: 'PUT',
-        body: JSON.stringify({ new_password: newPassword, confirm_password: confirmPassword }),
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+          confirm_password: confirmPassword,
+        }),
       });
       setPasswordNotice(result.message);
+      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err) {
@@ -327,6 +333,17 @@ export default function ProfilePage() {
                     </div>
                     <form onSubmit={updatePassword}>
                       <label>
+                        <span>Current password</span>
+                        <input
+                          type="password"
+                          autoComplete="current-password"
+                          value={currentPassword}
+                          onChange={(event) => setCurrentPassword(event.target.value)}
+                          placeholder="Enter your current password"
+                          required
+                        />
+                      </label>
+                      <label>
                         <span>New password</span>
                         <input
                           type="password"
@@ -353,7 +370,9 @@ export default function ProfilePage() {
                       <button
                         className="btn btn-primary"
                         type="submit"
-                        disabled={passwordBusy || !passwordStrong || !passwordsMatch}
+                        disabled={
+                          passwordBusy || !currentPassword || !passwordStrong || !passwordsMatch
+                        }
                       >
                         {passwordBusy ? 'Updating…' : 'Update password'}
                       </button>
@@ -421,25 +440,25 @@ export default function ProfilePage() {
           .identity p,
           .section-heading p {
             color: var(--accent);
-            font-size: 9px;
+            font-size: 11px;
             font-weight: 800;
             letter-spacing: 0.11em;
             text-transform: uppercase;
           }
           .identity h2 {
             margin-top: 4px;
-            font-size: 27px;
+            font-size: 28px;
             letter-spacing: -0.04em;
           }
           .identity span {
             margin-top: 2px;
             color: var(--muted-strong);
-            font-size: 12px;
+            font-size: 14px;
           }
           .identity small {
             margin-top: 8px;
             color: var(--muted);
-            font-size: 10px;
+            font-size: 12px;
           }
           .rank-card {
             display: grid;
@@ -452,17 +471,17 @@ export default function ProfilePage() {
           }
           .rank-card span {
             color: var(--muted);
-            font-size: 9px;
+            font-size: 11px;
             text-transform: uppercase;
           }
           .rank-card strong {
             margin-top: 2px;
             color: var(--accent);
-            font-size: 28px;
+            font-size: 29px;
           }
           .rank-card small {
             color: var(--muted);
-            font-size: 10px;
+            font-size: 12px;
           }
           .stats-grid {
             display: grid;
@@ -503,13 +522,13 @@ export default function ProfilePage() {
           .stats-grid small {
             display: block;
             color: var(--muted);
-            font-size: 9px;
+            font-size: 11px;
             text-transform: uppercase;
           }
           .stats-grid strong {
             display: block;
             margin-top: 2px;
-            font-size: 14px;
+            font-size: 15px;
           }
           .profile-grid {
             display: grid;
@@ -538,11 +557,11 @@ export default function ProfilePage() {
           }
           .section-heading h3 {
             margin-top: 3px;
-            font-size: 18px;
+            font-size: 19px;
           }
           .section-heading > span {
             color: var(--muted);
-            font-size: 11px;
+            font-size: 13px;
           }
           .mastery-panel {
             background: linear-gradient(
@@ -581,7 +600,7 @@ export default function ProfilePage() {
             justify-content: space-between;
             margin-top: 7px;
             color: var(--muted);
-            font-size: 10px;
+            font-size: 12px;
           }
           .mini-stats {
             display: grid;
@@ -594,13 +613,13 @@ export default function ProfilePage() {
             border-radius: 9px;
             background: color-mix(in srgb, var(--surface-muted) 70%, transparent);
             color: var(--muted);
-            font-size: 10px;
+            font-size: 12px;
             text-align: center;
           }
           .mini-stats b {
             display: block;
             color: var(--foreground);
-            font-size: 16px;
+            font-size: 17px;
           }
           .topic-list {
             display: grid;
@@ -624,7 +643,7 @@ export default function ProfilePage() {
           }
           .topic-copy > span {
             color: var(--muted);
-            font-size: 8px;
+            font-size: 10px;
             font-weight: 700;
             text-transform: uppercase;
           }
@@ -633,7 +652,7 @@ export default function ProfilePage() {
           }
           .topic-copy strong {
             overflow: hidden;
-            font-size: 12px;
+            font-size: 14px;
             white-space: nowrap;
             text-overflow: ellipsis;
           }
@@ -643,7 +662,7 @@ export default function ProfilePage() {
             align-items: center;
             gap: 7px;
             color: var(--muted-strong);
-            font-size: 10px;
+            font-size: 12px;
             font-weight: 700;
           }
           .topic-score i {
@@ -663,22 +682,22 @@ export default function ProfilePage() {
             background: var(--surface);
           }
           .achievement-list article > span {
-            font-size: 24px;
+            font-size: 25px;
           }
           .achievement-list strong {
-            font-size: 12px;
+            font-size: 14px;
           }
           .achievement-list p {
             margin-top: 2px;
             color: var(--muted);
-            font-size: 10px;
+            font-size: 12px;
             line-height: 1.4;
           }
           .achievement-list small {
             display: block;
             margin-top: 5px;
             color: var(--muted);
-            font-size: 9px;
+            font-size: 11px;
           }
           .badge-grid {
             display: grid;
@@ -704,16 +723,16 @@ export default function ProfilePage() {
             opacity: 0.56;
           }
           .badge-grid article > span {
-            font-size: 28px;
+            font-size: 29px;
           }
           .badge-grid strong {
             margin-top: 6px;
-            font-size: 11px;
+            font-size: 13px;
           }
           .badge-grid p {
             margin-top: 3px;
             color: var(--muted);
-            font-size: 9px;
+            font-size: 11px;
             line-height: 1.35;
           }
           .password-panel form {
@@ -726,7 +745,7 @@ export default function ProfilePage() {
           }
           .password-panel label > span {
             color: var(--muted-strong);
-            font-size: 10px;
+            font-size: 12px;
             font-weight: 700;
           }
           .password-panel input {
@@ -736,7 +755,7 @@ export default function ProfilePage() {
             border-radius: 8px;
             background: var(--background);
             color: var(--foreground);
-            font-size: 12px;
+            font-size: 14px;
           }
           .password-panel input:focus {
             outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
@@ -744,7 +763,7 @@ export default function ProfilePage() {
           }
           .password-panel form > small {
             color: var(--muted);
-            font-size: 9px;
+            font-size: 11px;
             line-height: 1.4;
           }
           .password-panel .btn {
@@ -753,14 +772,14 @@ export default function ProfilePage() {
           }
           .field-error {
             color: var(--danger);
-            font-size: 10px;
+            font-size: 12px;
           }
           .success {
             padding: 8px;
             border-radius: 7px;
             background: var(--accent-soft);
             color: var(--accent);
-            font-size: 10px;
+            font-size: 12px;
             text-align: center;
           }
           .empty-state {
@@ -770,7 +789,7 @@ export default function ProfilePage() {
             align-content: center;
             gap: 8px;
             color: var(--muted);
-            font-size: 11px;
+            font-size: 13px;
             text-align: center;
           }
           .page-error {
@@ -787,14 +806,14 @@ export default function ProfilePage() {
             border-radius: 9px;
             background: #fff3f3;
             color: var(--danger);
-            font-size: 11px;
+            font-size: 13px;
             box-shadow: 0 10px 28px rgba(0, 0, 0, 0.15);
           }
           .page-error button {
             border: 0;
             background: transparent;
             color: inherit;
-            font-size: 17px;
+            font-size: 18px;
           }
           @media (max-width: 900px) {
             .profile-page {
@@ -825,13 +844,13 @@ export default function ProfilePage() {
               flex-basis: 56px;
               height: 56px;
               border-radius: 16px;
-              font-size: 19px;
+              font-size: 20px;
             }
             .identity {
               min-width: calc(100% - 80px);
             }
             .identity h2 {
-              font-size: 22px;
+              font-size: 23px;
             }
             .rank-card {
               width: 100%;

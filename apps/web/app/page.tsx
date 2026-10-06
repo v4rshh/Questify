@@ -115,6 +115,8 @@ export default function LandingAuthPage() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="••••••••"
+                minLength={isLogin ? undefined : 8}
+                maxLength={128}
                 required
               />
             </label>
@@ -168,7 +170,7 @@ export default function LandingAuthPage() {
           align-items: center;
           gap: 9px;
           color: var(--accent-ink);
-          font-size: 19px;
+          font-size: 20px;
           font-weight: 700;
           letter-spacing: -0.04em;
         }
@@ -181,7 +183,7 @@ export default function LandingAuthPage() {
           background: var(--accent);
           color: white;
           font-family: Georgia, serif;
-          font-size: 19px;
+          font-size: 20px;
         }
         .story-copy {
           max-width: 570px;
@@ -190,7 +192,7 @@ export default function LandingAuthPage() {
         .story-kicker {
           margin-bottom: 18px;
           color: var(--accent);
-          font-size: 12px;
+          font-size: 14px;
           font-weight: 700;
           letter-spacing: 0.1em;
           text-transform: uppercase;
@@ -213,7 +215,7 @@ export default function LandingAuthPage() {
         .story-copy > p:last-child {
           max-width: 430px;
           color: #698072;
-          font-size: 16px;
+          font-size: 17px;
           line-height: 1.6;
         }
         .story-footer {
@@ -221,7 +223,7 @@ export default function LandingAuthPage() {
           flex-wrap: wrap;
           gap: 18px;
           color: #789080;
-          font-size: 11px;
+          font-size: 13px;
         }
         .story-footer span {
           display: inline-flex;
@@ -253,12 +255,12 @@ export default function LandingAuthPage() {
         }
         .form-heading h2 {
           margin-bottom: 7px;
-          font-size: 25px;
+          font-size: 26px;
           letter-spacing: -0.04em;
         }
         .form-heading p {
           color: var(--muted);
-          font-size: 13px;
+          font-size: 15px;
         }
         .auth-form {
           display: flex;
@@ -270,7 +272,7 @@ export default function LandingAuthPage() {
           flex-direction: column;
           gap: 7px;
           color: var(--muted-strong);
-          font-size: 12px;
+          font-size: 14px;
           font-weight: 600;
         }
         .auth-submit {
@@ -284,12 +286,12 @@ export default function LandingAuthPage() {
           border-radius: 8px;
           background: #fff6f6;
           color: var(--danger);
-          font-size: 12px;
+          font-size: 14px;
         }
         .auth-toggle {
           margin-top: 25px;
           color: var(--muted);
-          font-size: 12px;
+          font-size: 14px;
         }
         .auth-toggle button {
           padding: 0;

@@ -23,6 +23,7 @@ from ...schemas import (
     FlashcardRead,
     FlashcardReviewCreate,
     FlashcardReviewRead,
+    FlashcardUpdate,
     KnowledgeNodeRead,
     LearningWorldRead,
     QuizAttemptRead,
@@ -32,6 +33,7 @@ from ...schemas import (
     QuizSessionAttemptRead,
     QuizSessionSubmitCreate,
     QuizSubmitCreate,
+    QuizQuestionUpdate,
     TodayQuizRead,
     TodayQuestRead,
     TodayStudyPlanRead,
@@ -603,6 +605,29 @@ def review_flashcard(
     return FlashcardReviewRead(card=card, xp_earned=xp_earned, total_xp=current_user.xp)
 
 
+@router.patch("/flashcards/{flashcard_id}", response_model=FlashcardRead)
+def update_flashcard(
+    flashcard_id: UUID,
+    payload: FlashcardUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    card = db.get(Flashcard, flashcard_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Flashcard not found")
+    node = db.get(KnowledgeNode, card.node_id)
+    if not node:
+        raise HTTPException(status_code=404, detail="Learning node not found")
+    _owned_course(db, node.course_id, current_user.id)
+
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
+        setattr(card, field, value.strip() if isinstance(value, str) else value)
+    db.commit()
+    db.refresh(card)
+    return card
+
+
 @router.get("/courses/{course_id}/quizzes", response_model=list[QuizRead])
 def list_quizzes(course_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     _owned_course(db, course_id, current_user.id)
@@ -612,6 +637,50 @@ def list_quizzes(course_id: UUID, db: Session = Depends(get_db), current_user: U
         .where(KnowledgeNode.course_id == course_id)
         .order_by(KnowledgeNode.world_index, KnowledgeNode.level_index)
     ).all()
+
+
+@router.patch("/quizzes/{quiz_id}/questions/{question_index}", response_model=QuizRead)
+def update_quiz_question(
+    quiz_id: UUID,
+    question_index: int,
+    payload: QuizQuestionUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    quiz = db.get(Quiz, quiz_id)
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+    node = db.get(KnowledgeNode, quiz.node_id)
+    if not node:
+        raise HTTPException(status_code=404, detail="Learning node not found")
+    _owned_course(db, node.course_id, current_user.id)
+
+    if db.scalar(select(QuizAttempt.id).where(QuizAttempt.quiz_id == quiz.id).limit(1)):
+        raise HTTPException(
+            status_code=409,
+            detail="This question has saved attempts and cannot be edited until attempt snapshots are enabled",
+        )
+
+    questions = [dict(question) for question in quiz.questions_data.get("questions", [])]
+    if question_index < 0 or question_index >= len(questions):
+        raise HTTPException(status_code=404, detail="Quiz question not found")
+
+    question = questions[question_index]
+    changes = payload.model_dump(exclude_unset=True)
+    for field in ("prompt", "explanation"):
+        if field in changes:
+            changes[field] = changes[field].strip()
+    question.update(changes)
+    options = question.get("options", [])
+    answer_index = question.get("answer_index")
+    if len(options) != 4 or not isinstance(answer_index, int) or answer_index not in range(4):
+        raise HTTPException(status_code=422, detail="Question requires four options and one correct answer")
+
+    questions[question_index] = question
+    quiz.questions_data = {**quiz.questions_data, "questions": questions}
+    db.commit()
+    db.refresh(quiz)
+    return quiz
 
 
 @router.post("/quizzes/{quiz_id}/attempts", response_model=QuizAttemptRead, status_code=status.HTTP_201_CREATED)

@@ -53,6 +53,15 @@ Response:
 }
 ```
 
+### Edit a flashcard
+
+`PATCH /learning/flashcards/{flashcard_id}`
+
+Send one or more of `front`, `back`, or `hint`. Blank questions and answers are
+rejected. Editing the content preserves the card's repetition count, ease
+factor, interval, and next review date. Only the owner of the parent course can
+edit it.
+
 ### Read the current learner
 
 `GET /auth/me`
@@ -219,6 +228,16 @@ Response:
 `GET /learning/courses/{course_id}/quizzes`
 
 Each quiz returns `questions_data.questions`. The correct option index is present in the current server response because the API grades client-submitted attempts. Before public deployment, split this into a learner-safe quiz payload and a private grading payload.
+
+### Edit a generated quiz question
+
+`PATCH /learning/quizzes/{quiz_id}/questions/{question_index}`
+
+Send one or more of `prompt`, `options`, `answer_index`, or `explanation`.
+Questions continue to require four distinct non-empty options and one valid
+correct-answer index. Existing source and page metadata are preserved. A quiz
+with saved attempts returns 409 until immutable attempt snapshots are added, so
+an edit cannot change the meaning of historical answer indexes.
 
 ### Submit a quiz
 

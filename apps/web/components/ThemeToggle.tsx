@@ -49,7 +49,7 @@ export default function ThemeToggle({ compact = false }: { compact?: boolean }) 
           border-radius: 8px;
           background: transparent;
           color: var(--muted-strong);
-          font-size: 13px;
+          font-size: 15px;
           text-align: left;
         }
         .theme-toggle:hover {

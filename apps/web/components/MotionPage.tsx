@@ -13,7 +13,7 @@ export default function MotionPage({ children, ...props }: MotionPageProps) {
       {...props}
       initial={reduceMotion ? false : { opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.36, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
     >
       {children}
     </motion.main>

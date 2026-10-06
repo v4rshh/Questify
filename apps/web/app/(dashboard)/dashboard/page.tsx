@@ -23,11 +23,27 @@ interface Citation {
   excerpt: string;
   chunk_index: number;
 }
+interface TutorChallenge {
+  id: string;
+  prompt: string;
+  options: string[];
+}
+interface ChallengeResult {
+  correct: boolean;
+  selected_answer_index: number;
+  correct_answer_index: number;
+  explanation: string;
+  xp_earned: number;
+  total_xp: number;
+  already_answered: boolean;
+}
 interface Message {
   id: string;
   sender: 'user' | 'assistant';
   text: string;
   citations?: Citation[];
+  challenge?: TutorChallenge;
+  challengeResult?: ChallengeResult;
 }
 interface TutorResponse {
   response: string;
@@ -37,6 +53,7 @@ interface TutorResponse {
   citations: Citation[];
   grounded: boolean;
   retrieved_chunks: number;
+  challenge?: TutorChallenge | null;
 }
 interface Material {
   id: string;
@@ -132,6 +149,7 @@ export default function DashboardPage() {
   const [isResolvingContext, setIsResolvingContext] = useState(false);
   const [todayPlan, setTodayPlan] = useState<TodayPlan | null>(null);
   const [claimingQuest, setClaimingQuest] = useState(false);
+  const [answeringChallengeId, setAnsweringChallengeId] = useState<string | null>(null);
 
   const messages = messagesByThread[activeThreadId] || [welcomeMessage];
   const activeThread = threads.find((thread) => thread.id === activeThreadId);
@@ -346,8 +364,13 @@ export default function DashboardPage() {
         {
           id: `assistant-${Date.now()}`,
           sender: 'assistant',
-          text: result.response,
+          // The API also includes a markdown fallback for older clients. The
+          // current client renders the structured challenge directly.
+          text: result.challenge
+            ? 'Choose the best answer. A correct response earns 5 XP.'
+            : result.response,
           citations: result.citations,
+          challenge: result.challenge || undefined,
         },
       ]);
       if (
@@ -361,6 +384,36 @@ export default function DashboardPage() {
       setError(err instanceof Error ? err.message : 'The tutor could not be reached.');
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const answerChallenge = async (messageId: string, challengeId: string, answerIndex: number) => {
+    if (answeringChallengeId) return;
+    setAnsweringChallengeId(challengeId);
+    setError('');
+    try {
+      const result = await fetchApi<ChallengeResult>(
+        `/tutor/challenges/${challengeId}/answer`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ answer_index: answerIndex }),
+        },
+      );
+      updateActiveMessages((current) =>
+        current.map((message) =>
+          message.id === messageId ? { ...message, challengeResult: result } : message,
+        ),
+      );
+      setStats((current) => (current ? { ...current, xp: result.total_xp } : current));
+      if (result.xp_earned) window.dispatchEvent(new Event('questify:metrics-updated'));
+    } catch (challengeError) {
+      setError(
+        challengeError instanceof Error
+          ? challengeError.message
+          : 'The challenge answer could not be submitted.',
+      );
+    } finally {
+      setAnsweringChallengeId(null);
     }
   };
 
@@ -580,12 +633,12 @@ export default function DashboardPage() {
           </div>
           <div className="topbar-right">
             <span className="topbar-stat">
-              <Icon name="flame" size={14} /> {stats?.streak_count ?? user?.streak_count ?? 0}
+              <Icon name="flame" size={20} /> {stats?.streak_count ?? user?.streak_count ?? 0}
             </span>
             <span className="topbar-stat">
-              <Icon name="sparkles" size={14} /> {stats?.xp ?? user?.xp ?? 0} XP
+              <Icon name="sparkles" size={20} /> {stats?.xp ?? user?.xp ?? 0} XP
             </span>
-            <span className="topbar-stat">💎 {stats?.gems ?? 20}</span>
+            <span className="topbar-stat text-lg">💎 {stats?.gems ?? 20}</span>
             <ThemeToggle compact />
             <button className="icon-button" type="button" aria-label="More options">
               <Icon name="more" />
@@ -645,6 +698,49 @@ export default function DashboardPage() {
                       </div>
                     ) : (
                       <div className="message-text">{message.text}</div>
+                    )}
+                    {message.challenge && (
+                      <section className="chat-challenge" aria-label="Game mode challenge">
+                        <div className="challenge-heading">
+                          <span>Game challenge</span>
+                          <b>+5 XP</b>
+                        </div>
+                        <p>{message.challenge.prompt}</p>
+                        <div className="challenge-options">
+                          {message.challenge.options.map((option, optionIndex) => {
+                            const result = message.challengeResult;
+                            const selected = result?.selected_answer_index === optionIndex;
+                            const correct = result?.correct_answer_index === optionIndex;
+                            return (
+                              <button
+                                type="button"
+                                key={`${message.challenge?.id}-${optionIndex}`}
+                                disabled={Boolean(result) || answeringChallengeId === message.challenge?.id}
+                                className={`${selected ? 'selected' : ''} ${result && correct ? 'correct' : ''} ${result && selected && !correct ? 'wrong' : ''}`}
+                                onClick={() =>
+                                  answerChallenge(message.id, message.challenge!.id, optionIndex)
+                                }
+                              >
+                                <span>{String.fromCharCode(65 + optionIndex)}</span>
+                                {option}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {message.challengeResult && (
+                          <div
+                            className={`challenge-feedback ${message.challengeResult.correct ? 'success' : 'incorrect'}`}
+                            role="status"
+                          >
+                            <strong>
+                              {message.challengeResult.correct
+                                ? `Correct! +${message.challengeResult.xp_earned} XP`
+                                : 'Not quite — review the answer below.'}
+                            </strong>
+                            <p>{message.challengeResult.explanation}</p>
+                          </div>
+                        )}
+                      </section>
                     )}
                     {message.citations && message.citations.length > 0 && (
                       <div className="citation-list">
@@ -749,7 +845,11 @@ export default function DashboardPage() {
                     }
                   }}
                   placeholder={
-                    isUploading ? 'Indexing your resource…' : 'Ask anything about your studies…'
+                    isUploading
+                      ? 'Indexing your resource…'
+                      : gameMode
+                        ? 'Choose a topic for your next challenge…'
+                        : 'Ask anything about your studies…'
                   }
                   rows={1}
                   disabled={isUploading}
@@ -934,7 +1034,7 @@ export default function DashboardPage() {
           display: none;
           align-items: center;
           gap: 8px;
-          font-size: 15px;
+          font-size: 16px;
           font-weight: 700;
         }
         .brand-mark-small {
@@ -952,7 +1052,7 @@ export default function DashboardPage() {
           align-items: center;
           gap: 8px;
           color: var(--muted-strong);
-          font-size: 13px;
+          font-size: 15px;
         }
         .context-select select {
           max-width: 240px;
@@ -974,7 +1074,7 @@ export default function DashboardPage() {
           align-items: center;
           gap: 5px;
           color: var(--muted);
-          font-size: 12px;
+          font-size: 14px;
         }
         .topbar-stat:first-child {
           color: var(--warm);
@@ -1025,14 +1125,14 @@ export default function DashboardPage() {
         }
         .chat-kicker {
           color: var(--accent);
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 700;
           letter-spacing: 0.1em;
           text-transform: uppercase;
         }
         .chat-empty-state h1 {
           margin: 8px 0 11px;
-          font-size: clamp(28px, 4vw, 42px);
+          font-size: clamp(30px, 4vw, 44px);
           line-height: 1.08;
           font-weight: 600;
           letter-spacing: -0.055em;
@@ -1041,33 +1141,61 @@ export default function DashboardPage() {
           max-width: 500px;
           margin: 0 auto;
           color: var(--muted);
-          font-size: 14px;
+          font-size: 15px;
           line-height: 1.6;
         }
         .quick-prompts {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 9px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 10px;
           margin-top: 27px;
         }
-        .quick-prompt {
-          display: flex;
+
+        :global(.quick-prompt) {
+          appearance: none;
+          -webkit-appearance: none;
+
+          display: inline-flex;
           align-items: center;
-          justify-content: space-between;
-          min-height: 50px;
-          padding: 0 12px;
-          border: 1px solid var(--border);
-          border-radius: 9px;
+          justify-content: center;
+          gap: 8px;
+
+          min-height: 42px;
+          padding: 0 16px;
+
+          border: 1px solid var(--border-strong);
+          border-radius: 10px;
+
           background: var(--surface);
-          color: var(--muted-strong);
-          font-size: 12px;
-          text-align: left;
+          color: var(--foreground);
+
+          font-family: inherit;
+          font-size: 15px;
+          font-weight: 500;
+          line-height: 1;
+
+          white-space: nowrap;
+          text-align: center;
+
+          cursor: pointer;
           box-shadow: var(--shadow-sm);
         }
-        .quick-prompt:hover {
+
+        :global(.quick-prompt:hover) {
           border-color: #b7cbbf;
+          background: var(--accent-soft);
           color: var(--accent-ink);
-          background: #f9fcfa;
+        }
+
+        :global(.quick-prompt span) {
+          display: inline-block;
+          line-height: 1;
+        }
+
+        :global(.quick-prompt svg) {
+          flex-shrink: 0;
         }
         .message-list {
           display: flex;
@@ -1113,7 +1241,7 @@ export default function DashboardPage() {
         .message-label {
           margin-bottom: 5px;
           color: var(--muted);
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 600;
         }
         .message-row.user .message-label {
@@ -1121,7 +1249,7 @@ export default function DashboardPage() {
         }
         .message-text {
           color: var(--foreground);
-          font-size: 14px;
+          font-size: 15px;
           line-height: 1.65;
           white-space: pre-wrap;
         }
@@ -1143,13 +1271,13 @@ export default function DashboardPage() {
           font-weight: 700;
         }
         .markdown-response :global(h1) {
-          font-size: 22px;
+          font-size: 23px;
         }
         .markdown-response :global(h2) {
-          font-size: 18px;
+          font-size: 19px;
         }
         .markdown-response :global(h3) {
-          font-size: 15px;
+          font-size: 16px;
         }
         .markdown-response :global(ul),
         .markdown-response :global(ol) {
@@ -1173,7 +1301,7 @@ export default function DashboardPage() {
           border-radius: 8px;
           background: #171a18;
           color: #eef4ef;
-          font-size: 12px;
+          font-size: 14px;
         }
         .markdown-response :global(code:not(pre code)) {
           padding: 2px 5px;
@@ -1212,10 +1340,114 @@ export default function DashboardPage() {
           padding-top: 10px;
           border-top: 1px solid var(--border);
         }
+        .chat-challenge {
+          width: min(620px, 100%);
+          margin-top: 14px;
+          padding: 17px;
+          border: 1px solid #c9dacf;
+          border-radius: 13px;
+          background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface));
+        }
+        .challenge-heading {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 9px;
+          color: var(--accent);
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+        .challenge-heading b {
+          padding: 3px 7px;
+          border-radius: 99px;
+          background: var(--accent);
+          color: white;
+          font-size: 11px;
+          letter-spacing: 0;
+        }
+        .chat-challenge > p {
+          margin: 0 0 13px;
+          font-size: 16px;
+          font-weight: 650;
+          line-height: 1.45;
+        }
+        .challenge-options {
+          display: grid;
+          gap: 8px;
+        }
+        .challenge-options button {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid var(--border-strong);
+          border-radius: 9px;
+          background: var(--surface);
+          color: var(--foreground);
+          font: inherit;
+          font-size: 14px;
+          line-height: 1.35;
+          text-align: left;
+          cursor: pointer;
+          transition: border-color 0.16s, background 0.16s, transform 0.16s;
+        }
+        .challenge-options button:not(:disabled):hover {
+          border-color: var(--accent);
+          background: var(--accent-soft);
+          transform: translateY(-1px);
+        }
+        .challenge-options button:disabled {
+          cursor: default;
+          opacity: 0.78;
+        }
+        .challenge-options button span {
+          display: grid;
+          flex: 0 0 auto;
+          place-items: center;
+          width: 25px;
+          height: 25px;
+          border: 1px solid currentColor;
+          border-radius: 50%;
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .challenge-options button.correct {
+          border-color: #4f8a67;
+          background: #e8f5ec;
+          color: #245d3d;
+          opacity: 1;
+        }
+        .challenge-options button.wrong {
+          border-color: #bd6b6b;
+          background: #fff0f0;
+          color: #8b3232;
+          opacity: 1;
+        }
+        .challenge-feedback {
+          margin-top: 12px;
+          padding: 11px 12px;
+          border-radius: 9px;
+          font-size: 14px;
+          line-height: 1.45;
+        }
+        .challenge-feedback.success {
+          background: #dff1e5;
+          color: #245d3d;
+        }
+        .challenge-feedback.incorrect {
+          background: #fff0f0;
+          color: #7b3434;
+        }
+        .challenge-feedback p {
+          margin: 4px 0 0;
+        }
         .citation-heading {
           width: 100%;
           color: var(--muted);
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.08em;
@@ -1226,7 +1458,7 @@ export default function DashboardPage() {
           border-radius: 5px;
           background: #f2f8f4;
           color: var(--accent-ink);
-          font-size: 10px;
+          font-size: 12px;
         }
         .typing {
           display: flex;
@@ -1283,16 +1515,16 @@ export default function DashboardPage() {
           min-width: 0;
         }
         .world-card-copy strong {
-          font-size: 12px;
+          font-size: 14px;
         }
         .world-card-copy span {
           color: var(--muted-strong);
-          font-size: 11px;
+          font-size: 13px;
         }
         .world-card .btn {
           min-height: 33px;
           padding: 0 10px;
-          font-size: 11px;
+          font-size: 13px;
         }
         .chat-error {
           display: flex;
@@ -1304,7 +1536,7 @@ export default function DashboardPage() {
           border-radius: 8px;
           background: #fff6f6;
           color: var(--danger);
-          font-size: 12px;
+          font-size: 14px;
         }
         .composer-wrap {
           padding: 12px 0 23px;
@@ -1331,7 +1563,7 @@ export default function DashboardPage() {
           outline: 0;
           background: transparent;
           color: var(--foreground);
-          font-size: 14px;
+          font-size: 15px;
           line-height: 1.4;
         }
         .composer textarea::placeholder {
@@ -1377,7 +1609,7 @@ export default function DashboardPage() {
           border: 0;
           background: transparent;
           color: var(--muted);
-          font-size: 10px;
+          font-size: 12px;
         }
         .mode-switch em {
           font-style: normal;
@@ -1442,14 +1674,14 @@ export default function DashboardPage() {
         .mode-popup b {
           display: block;
           color: var(--accent);
-          font-size: 10px;
+          font-size: 12px;
           text-transform: uppercase;
           letter-spacing: 0.07em;
         }
         .mode-popup p {
           margin: 3px 0 9px;
           color: var(--muted-strong);
-          font-size: 10px;
+          font-size: 12px;
           line-height: 1.4;
         }
         .mode-popup p:last-child {
@@ -1466,7 +1698,7 @@ export default function DashboardPage() {
           justify-content: space-between;
           padding: 7px 4px 0;
           color: #9a9a92;
-          font-size: 10px;
+          font-size: 12px;
         }
         .composer-hint span {
           display: inline-flex;
@@ -1482,7 +1714,7 @@ export default function DashboardPage() {
           display: flex;
           justify-content: space-between;
           color: var(--muted);
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 700;
           letter-spacing: 0.08em;
           text-transform: uppercase;
@@ -1509,12 +1741,12 @@ export default function DashboardPage() {
           color: var(--accent);
         }
         .context-card strong {
-          font-size: 13px;
+          font-size: 15px;
           line-height: 1.35;
         }
         .context-card span {
           color: var(--muted);
-          font-size: 11px;
+          font-size: 13px;
         }
         .rail-divider {
           height: 1px;
@@ -1529,7 +1761,7 @@ export default function DashboardPage() {
         }
         .rail-note p {
           color: var(--muted);
-          font-size: 11px;
+          font-size: 13px;
           line-height: 1.5;
         }
         .today-plan,
@@ -1556,13 +1788,13 @@ export default function DashboardPage() {
         .today-plan header span,
         .quest-card > span {
           color: var(--accent);
-          font-size: 9px;
+          font-size: 11px;
           font-weight: 800;
           letter-spacing: 0.08em;
           text-transform: uppercase;
         }
         .today-plan header strong {
-          font-size: 15px;
+          font-size: 16px;
         }
         .today-plan > a {
           display: flex;
@@ -1579,13 +1811,13 @@ export default function DashboardPage() {
         }
         .today-plan > a b {
           color: var(--accent);
-          font-size: 16px;
+          font-size: 17px;
         }
         .today-plan > a span,
         .today-plan > p,
         .quest-card p {
           color: var(--muted);
-          font-size: 10px;
+          font-size: 12px;
           line-height: 1.45;
         }
         .today-plan .plan-recommendation {
@@ -1594,12 +1826,12 @@ export default function DashboardPage() {
         }
         .today-plan .plan-recommendation strong {
           overflow: hidden;
-          font-size: 11px;
+          font-size: 13px;
           white-space: nowrap;
           text-overflow: ellipsis;
         }
         .quest-card > strong {
-          font-size: 13px;
+          font-size: 15px;
         }
         .quest-card > i {
           height: 6px;
@@ -1616,7 +1848,7 @@ export default function DashboardPage() {
         }
         .quest-card footer span {
           color: var(--muted);
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 700;
         }
         .quest-card footer button {
@@ -1625,7 +1857,7 @@ export default function DashboardPage() {
           border-radius: 7px;
           background: var(--accent);
           color: white;
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 800;
         }
         .quest-card footer button:disabled {
@@ -1649,17 +1881,17 @@ export default function DashboardPage() {
         }
         .rail-empty strong {
           color: var(--foreground);
-          font-size: 13px;
+          font-size: 15px;
         }
         .rail-empty span {
-          font-size: 11px;
+          font-size: 13px;
           line-height: 1.45;
         }
         .rail-empty .btn {
           margin-top: 5px;
           min-height: 33px;
           padding: 0 10px;
-          font-size: 11px;
+          font-size: 13px;
         }
         .confirm-backdrop {
           position: fixed;
@@ -1692,12 +1924,12 @@ export default function DashboardPage() {
           color: var(--danger);
         }
         .confirm-dialog h2 {
-          font-size: 19px;
+          font-size: 20px;
         }
         .confirm-dialog p {
           margin: 8px 0 20px;
           color: var(--muted-strong);
-          font-size: 12px;
+          font-size: 14px;
           line-height: 1.55;
         }
         .confirm-dialog > div:last-child {
@@ -1734,7 +1966,7 @@ export default function DashboardPage() {
           }
           .context-select select {
             max-width: 145px;
-            font-size: 12px;
+            font-size: 14px;
           }
           .topbar-right {
             display: flex;
@@ -1753,7 +1985,7 @@ export default function DashboardPage() {
           .quick-prompts {
             grid-template-columns: 1fr;
           }
-          .quick-prompt {
+          :global(.quick-prompt) {
             min-height: 42px;
           }
           .message-list {

@@ -125,7 +125,7 @@ export default function ReviewSummary({
         }
         .review-hero > span {
           color: #e7b953;
-          font-size: 10px;
+          font-size: 12px;
           font-weight: 900;
           letter-spacing: 0.18em;
         }
@@ -138,7 +138,7 @@ export default function ReviewSummary({
         .review-hero p {
           margin-top: 7px;
           color: #d5d5c9;
-          font-size: 12px;
+          font-size: 14px;
         }
         .review-hero > div {
           height: 9px;
@@ -180,13 +180,13 @@ export default function ReviewSummary({
         }
         .review-content b {
           display: block;
-          font-size: 14px;
+          font-size: 15px;
         }
         .review-content small {
           display: block;
           margin-top: 2px;
           color: #8b7760;
-          font-size: 10px;
+          font-size: 12px;
         }
         .review-content ul {
           margin: 12px 0 0 42px;
@@ -201,23 +201,23 @@ export default function ReviewSummary({
         }
         .review-content li strong {
           color: #73502d;
-          font-size: 10px;
+          font-size: 12px;
           text-transform: uppercase;
           letter-spacing: 0.06em;
         }
         .review-content li span {
-          font-size: 12px;
+          font-size: 14px;
           line-height: 1.4;
         }
         .review-content li em {
           color: #9c533e;
-          font-size: 10px;
+          font-size: 12px;
           font-style: normal;
         }
         .review-content article > p {
           margin: 12px 0 0 42px;
           color: #7f6a52;
-          font-size: 12px;
+          font-size: 14px;
         }
         .review-backdrop footer {
           display: flex;

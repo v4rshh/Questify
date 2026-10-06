@@ -17,6 +17,8 @@ interface Question {
   options: string[];
   answer_index: number;
   explanation: string;
+  source?: string;
+  page?: number | null;
 }
 interface Quiz {
   id: string;
@@ -64,6 +66,7 @@ interface QuizMistake {
   explanation: string;
 }
 type SessionMode = 'level' | '5' | '10' | 'all' | 'mistakes';
+type QuestionDraft = Pick<Question, 'prompt' | 'options' | 'answer_index' | 'explanation'>;
 
 function shuffled<T>(items: T[]) {
   const next = [...items];
@@ -89,22 +92,44 @@ export default function QuizzesPage() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [editingKey, setEditingKey] = useState('');
+  const [questionDraft, setQuestionDraft] = useState<QuestionDraft | null>(null);
+  const [editBusy, setEditBusy] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     fetchApi<Course[]>('/courses')
       .then((items) => {
+        if (cancelled) return;
         setCourses(items);
         if (items.length) setCourseId(items[0].id);
         else setLoading(false);
       })
       .catch((err) => {
-        setError(err.message);
-        setLoading(false);
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Could not load workspaces.');
+          setLoading(false);
+        }
       });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
-    if (!courseId) return;
+    if (!courseId) {
+      setQuizzes([]);
+      setSelectedQuizId('');
+      setAttempt(null);
+      setHistory([]);
+      setMistakes([]);
+      setAnswers({});
+      setPosition(0);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
     setQuizzes([]);
     setSelectedQuizId('');
     setAttempt(null);
@@ -113,6 +138,9 @@ export default function QuizzesPage() {
     setAnswers({});
     setPosition(0);
     setError('');
+    setNotice('');
+    setEditingKey('');
+    setQuestionDraft(null);
     setLoading(true);
     Promise.all([
       fetchApi<Quiz[]>(`/learning/courses/${courseId}/quizzes`),
@@ -120,13 +148,21 @@ export default function QuizzesPage() {
       fetchApi<QuizMistake[]>(`/learning/courses/${courseId}/quiz-mistakes`),
     ])
       .then(([items, attempts, missed]) => {
+        if (cancelled) return;
         setQuizzes(items);
         setHistory(attempts);
         setMistakes(missed);
         setSelectedQuizId(items[0]?.id || '');
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load quizzes.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [courseId]);
 
   const questionPool = useMemo<SessionQuestion[]>(
@@ -228,6 +264,49 @@ export default function QuizzesPage() {
     }
   };
 
+  const beginQuestionEdit = (item: SessionQuestion) => {
+    setEditingKey(item.key);
+    setQuestionDraft({
+      prompt: item.question.prompt,
+      options: [...item.question.options],
+      answer_index: item.question.answer_index,
+      explanation: item.question.explanation,
+    });
+    setError('');
+    setNotice('');
+  };
+
+  const saveQuestionEdit = async (item: SessionQuestion) => {
+    if (!questionDraft || editBusy) return;
+    if (
+      !questionDraft.prompt.trim() ||
+      !questionDraft.explanation.trim() ||
+      questionDraft.options.some((option) => !option.trim())
+    ) {
+      setError('Complete the question, all four options, and the explanation.');
+      return;
+    }
+    setEditBusy(true);
+    setError('');
+    try {
+      const updated = await fetchApi<Quiz>(
+        `/learning/quizzes/${item.quizId}/questions/${item.questionIndex}`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify(questionDraft),
+        },
+      );
+      setQuizzes((current) => current.map((quiz) => (quiz.id === updated.id ? updated : quiz)));
+      setEditingKey('');
+      setQuestionDraft(null);
+      setNotice('Question updated. Its source reference was preserved.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update this question.');
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
   return (
     <div className="app-shell">
       <Sidebar />
@@ -254,6 +333,7 @@ export default function QuizzesPage() {
             </select>
           </div>
           {error && <p className="error-message">{error}</p>}
+          {notice && <p className="notice-message">{notice}</p>}
           {loading ? (
             <LoadingState
               title="Loading your quizzes…"
@@ -342,9 +422,109 @@ export default function QuizzesPage() {
                   </nav>
 
                   <div className="question">
-                    <p className="question-source">{current.quizTitle}</p>
-                    <h3>{current.question.prompt}</h3>
-                    <div className="options">
+                    <div className="question-toolbar">
+                      <p className="question-source">{current.quizTitle}</p>
+                      {!attempt &&
+                        mode !== 'mistakes' &&
+                        editingKey !== current.key &&
+                        !history.some((item) => item.quiz_id === current.quizId) && (
+                          <button
+                            type="button"
+                            className="edit-content-button"
+                            onClick={() => beginQuestionEdit(current)}
+                          >
+                            Edit question
+                          </button>
+                        )}
+                      {!attempt &&
+                        mode !== 'mistakes' &&
+                        history.some((item) => item.quiz_id === current.quizId) && (
+                          <span className="edit-locked">Saved attempt · editing locked</span>
+                        )}
+                    </div>
+                    {editingKey === current.key && questionDraft && (
+                      <div className="question-editor">
+                        <label>
+                          <span>Question</span>
+                          <textarea
+                            value={questionDraft.prompt}
+                            onChange={(event) =>
+                              setQuestionDraft((draft) =>
+                                draft ? { ...draft, prompt: event.target.value } : draft,
+                              )
+                            }
+                          />
+                        </label>
+                        <div className="option-editor">
+                          {questionDraft.options.map((option, optionIndex) => (
+                            <label key={optionIndex}>
+                              <input
+                                type="radio"
+                                name="correct-option"
+                                checked={questionDraft.answer_index === optionIndex}
+                                onChange={() =>
+                                  setQuestionDraft((draft) =>
+                                    draft ? { ...draft, answer_index: optionIndex } : draft,
+                                  )
+                                }
+                                aria-label={`Mark option ${optionIndex + 1} correct`}
+                              />
+                              <span>{String.fromCharCode(65 + optionIndex)}</span>
+                              <input
+                                aria-label={`Option ${optionIndex + 1}`}
+                                value={option}
+                                onChange={(event) =>
+                                  setQuestionDraft((draft) => {
+                                    if (!draft) return draft;
+                                    const options = [...draft.options];
+                                    options[optionIndex] = event.target.value;
+                                    return { ...draft, options };
+                                  })
+                                }
+                              />
+                            </label>
+                          ))}
+                        </div>
+                        <label>
+                          <span>Explanation</span>
+                          <textarea
+                            value={questionDraft.explanation}
+                            onChange={(event) =>
+                              setQuestionDraft((draft) =>
+                                draft ? { ...draft, explanation: event.target.value } : draft,
+                              )
+                            }
+                          />
+                        </label>
+                        <div className="editor-actions">
+                          <button
+                            type="button"
+                            className="btn"
+                            disabled={editBusy}
+                            onClick={() => {
+                              setEditingKey('');
+                              setQuestionDraft(null);
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={editBusy}
+                            onClick={() => saveQuestionEdit(current)}
+                          >
+                            {editBusy ? 'Saving…' : 'Save question'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <h3 className={editingKey === current.key ? 'editing-original' : ''}>
+                      {current.question.prompt}
+                    </h3>
+                    <div
+                      className={`options ${editingKey === current.key ? 'editing-original' : ''}`}
+                    >
                       {current.question.options.map((option, optionIndex) => {
                         const selected = answers[current.key] === optionIndex;
                         const correct =
@@ -367,10 +547,16 @@ export default function QuizzesPage() {
                       })}
                     </div>
                     {attempt && (
-                      <p className="explanation">
+                      <div className="explanation">
                         <strong>Explanation</strong>
-                        {current.question.explanation}
-                      </p>
+                        <p>{current.question.explanation}</p>
+                        {(current.question.source || current.question.page) && (
+                          <small>
+                            Source: {current.question.source || 'Uploaded material'}
+                            {current.question.page ? ` · Page ${current.question.page}` : ''}
+                          </small>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -512,20 +698,20 @@ export default function QuizzesPage() {
           }
           .eyebrow {
             color: var(--accent);
-            font-size: 10px;
+            font-size: 12px;
             font-weight: 800;
             letter-spacing: 0.09em;
             text-transform: uppercase;
           }
           .quiz-top h2 {
             margin-top: 6px;
-            font-size: 29px;
+            font-size: 30px;
             letter-spacing: -0.045em;
           }
           .quiz-top > div > p:last-child {
             margin-top: 7px;
             color: var(--muted);
-            font-size: 13px;
+            font-size: 15px;
           }
           .course-select,
           .session-controls select {
@@ -553,7 +739,7 @@ export default function QuizzesPage() {
           }
           .session-controls label > span {
             color: var(--muted);
-            font-size: 10px;
+            font-size: 12px;
             font-weight: 800;
             letter-spacing: 0.07em;
             text-transform: uppercase;
@@ -586,14 +772,14 @@ export default function QuizzesPage() {
           }
           .quiz-card header h3 {
             margin-top: 5px;
-            font-size: 19px;
+            font-size: 20px;
           }
           .session-progress {
             display: grid;
             justify-items: end;
             gap: 6px;
             color: var(--muted);
-            font-size: 11px;
+            font-size: 13px;
           }
           .session-progress i {
             display: block;
@@ -623,7 +809,7 @@ export default function QuizzesPage() {
             border-radius: 8px;
             background: var(--surface);
             color: var(--muted);
-            font-size: 11px;
+            font-size: 13px;
             font-weight: 700;
           }
           .question-nav button.answered {
@@ -651,12 +837,83 @@ export default function QuizzesPage() {
           .question-source {
             margin-bottom: 7px;
             color: var(--muted);
-            font-size: 10px;
+            font-size: 12px;
+          }
+          .question-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+          }
+          .edit-content-button {
+            border: 0;
+            background: transparent;
+            color: var(--accent);
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+          }
+          .edit-locked {
+            color: var(--muted);
+            font-size: 12px;
+          }
+          .question-editor {
+            display: grid;
+            gap: 14px;
+            margin: 10px 0 18px;
+            padding: 18px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--surface-muted);
+          }
+          .question-editor > label {
+            display: grid;
+            gap: 6px;
+          }
+          .question-editor label > span {
+            color: var(--muted);
+            font-size: 13px;
+            font-weight: 700;
+          }
+          .question-editor textarea,
+          .option-editor label > input:last-child {
+            width: 100%;
+            padding: 10px 11px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface);
+            color: var(--foreground);
+            font: inherit;
+          }
+          .question-editor textarea {
+            min-height: 82px;
+            resize: vertical;
+          }
+          .option-editor {
+            display: grid;
+            gap: 8px;
+          }
+          .option-editor label {
+            display: grid;
+            grid-template-columns: auto 20px 1fr;
+            align-items: center;
+            gap: 8px;
+          }
+          .option-editor input[type='radio'] {
+            accent-color: var(--accent);
+          }
+          .editor-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
           }
           .question > h3 {
-            font-size: 18px;
+            font-size: 19px;
             line-height: 1.5;
             overflow-wrap: anywhere;
+          }
+          .editing-original {
+            display: none !important;
           }
           .options {
             display: grid;
@@ -672,7 +929,7 @@ export default function QuizzesPage() {
             border-radius: 9px;
             background: var(--surface);
             color: var(--foreground);
-            font-size: 13px;
+            font-size: 15px;
             text-align: left;
           }
           .options button:hover:not(:disabled),
@@ -695,7 +952,7 @@ export default function QuizzesPage() {
             height: 23px;
             border: 1px solid currentColor;
             border-radius: 50%;
-            font-size: 10px;
+            font-size: 12px;
             font-style: normal;
           }
           .options span {
@@ -703,7 +960,7 @@ export default function QuizzesPage() {
             overflow-wrap: anywhere;
           }
           .options b {
-            font-size: 18px;
+            font-size: 19px;
           }
           .explanation {
             display: grid;
@@ -714,13 +971,21 @@ export default function QuizzesPage() {
             border-radius: 4px;
             background: var(--accent-soft);
             color: var(--muted-strong);
-            font-size: 12px;
+            font-size: 14px;
             line-height: 1.55;
           }
           .explanation strong {
             color: var(--accent);
-            font-size: 10px;
+            font-size: 12px;
             text-transform: uppercase;
+          }
+          .explanation p {
+            margin: 0;
+          }
+          .explanation small {
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 13px;
           }
           .navigation {
             display: flex;
@@ -750,16 +1015,16 @@ export default function QuizzesPage() {
             gap: 12px;
           }
           .attempt-result strong {
-            font-size: 16px;
+            font-size: 17px;
           }
           .attempt-result span {
             color: var(--accent);
-            font-size: 12px;
+            font-size: 14px;
           }
           .attempt-result p {
             grid-column: 1;
             color: var(--muted-strong);
-            font-size: 11px;
+            font-size: 13px;
           }
           .attempt-result button {
             grid-column: 2;
@@ -781,7 +1046,7 @@ export default function QuizzesPage() {
           }
           .history-panel h3 {
             margin-top: 4px;
-            font-size: 18px;
+            font-size: 19px;
           }
           .history-list {
             display: grid;
@@ -803,21 +1068,21 @@ export default function QuizzesPage() {
           }
           .history-list strong {
             overflow: hidden;
-            font-size: 13px;
+            font-size: 15px;
             white-space: nowrap;
             text-overflow: ellipsis;
           }
           .history-list span,
           .history-empty {
             color: var(--muted);
-            font-size: 10px;
+            font-size: 12px;
           }
           .history-score {
             justify-items: end;
           }
           .history-score b {
             color: var(--accent);
-            font-size: 15px;
+            font-size: 16px;
           }
           .history-list article > span {
             min-width: 76px;
@@ -846,11 +1111,11 @@ export default function QuizzesPage() {
           }
           .empty h3 {
             color: var(--foreground);
-            font-size: 19px;
+            font-size: 20px;
           }
           .empty p {
             color: var(--muted);
-            font-size: 13px;
+            font-size: 15px;
             line-height: 1.55;
           }
           .error-message {
@@ -859,7 +1124,16 @@ export default function QuizzesPage() {
             border: 1px solid #e7caca;
             border-radius: 8px;
             color: var(--danger);
-            font-size: 12px;
+            font-size: 14px;
+          }
+          .notice-message {
+            margin-bottom: 12px;
+            padding: 10px 12px;
+            border: 1px solid #bcd7c4;
+            border-radius: 8px;
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-size: 14px;
           }
           @media (max-width: 1024px) {
             :global(.quiz-page) {
@@ -890,7 +1164,7 @@ export default function QuizzesPage() {
               width: 100%;
             }
             .question > h3 {
-              font-size: 16px;
+              font-size: 17px;
             }
             .navigation .btn {
               min-width: 0;

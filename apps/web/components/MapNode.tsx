@@ -63,7 +63,7 @@ export default function MapNode(props: LevelProps | TreasureProps) {
             padding: 2px 6px;
             border-radius: 999px;
             background: #fff2bf;
-            font-size: 11px;
+            font-size: 13px;
             white-space: nowrap;
           }
           .treasure:disabled {
@@ -218,7 +218,7 @@ export default function MapNode(props: LevelProps | TreasureProps) {
             0 11px 16px rgba(82, 39, 34, 0.28);
         }
         .node-icon {
-          font-size: 20px;
+          font-size: 21px;
           text-shadow: 0 1px white;
         }
         .stars {
@@ -226,7 +226,7 @@ export default function MapNode(props: LevelProps | TreasureProps) {
           left: 50%;
           bottom: 4px;
           transform: translateX(-50%);
-          font-size: 10px;
+          font-size: 12px;
           white-space: nowrap;
         }
         .node-label {
@@ -244,7 +244,7 @@ export default function MapNode(props: LevelProps | TreasureProps) {
         .node-label small {
           display: block;
           color: #987446;
-          font-size: 11px;
+          font-size: 13px;
           text-transform: uppercase;
           letter-spacing: 0.08em;
         }
@@ -252,7 +252,7 @@ export default function MapNode(props: LevelProps | TreasureProps) {
           display: block;
           overflow: hidden;
           color: #49311f;
-          font-size: 13px;
+          font-size: 15px;
           line-height: 1.25;
           white-space: nowrap;
           text-overflow: ellipsis;
@@ -268,7 +268,7 @@ export default function MapNode(props: LevelProps | TreasureProps) {
           border-radius: 999px;
           background: #ddcfaa;
           color: #47311f;
-          font-size: 10px;
+          font-size: 12px;
         }
         .progress-button i {
           position: absolute;
@@ -318,14 +318,14 @@ export default function MapNode(props: LevelProps | TreasureProps) {
         .summary b {
           display: block;
           padding-right: 15px;
-          font-size: 14px;
+          font-size: 15px;
         }
         .summary p,
         .summary span {
           display: block;
           margin-top: 5px;
           color: #73583a;
-          font-size: 12px;
+          font-size: 14px;
           line-height: 1.35;
         }
         .enemy {

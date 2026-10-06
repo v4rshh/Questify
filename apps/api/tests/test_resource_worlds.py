@@ -7,10 +7,13 @@ from sqlalchemy import create_engine, select, func
 from sqlalchemy.orm import Session
 
 from app.database import Base
-from app.models import User, Course, Material, ResourceWorld, LevelGame, Flashcard, UserAdventureState, LevelAdventureProgress
-from app.api.v1.learning import generate_world, get_game, answer_game, claim_level_reward, claim_treasure, start_generation, generation_status
+from app.models import User, Course, Material, ResourceWorld, LevelGame, Flashcard, Quiz, UserAdventureState, LevelAdventureProgress
+from app.api.v1.learning import (generate_world, get_game, answer_game, claim_level_reward,
+                                 claim_treasure, start_generation, generation_status,
+                                 update_flashcard, update_quiz_question)
 from app.models import WorldGenerationJob
-from app.schemas import WorldGenerateRequest, GameAnswerRequest
+from app.schemas import (WorldGenerateRequest, GameAnswerRequest, FlashcardUpdate,
+                         QuizQuestionUpdate)
 from app.services.curriculum import Curriculum
 
 
@@ -132,6 +135,46 @@ class WorldTests(unittest.TestCase):
             self.assertEqual(self.db.scalar(select(func.count(WorldGenerationJob.material_id))), 1)
         with self.assertRaises(HTTPException) as denied:
             generation_status(self.course.id, self.design.id, self.db, self.other)
+        self.assertEqual(denied.exception.status_code, 404)
+
+    def test_generated_flashcards_and_questions_can_be_edited_by_owner(self):
+        world = self.generate(self.design)
+        node = world.nodes[0]
+        card = self.db.scalar(select(Flashcard).where(Flashcard.node_id == node.id))
+        updated_card = update_flashcard(
+            card.id,
+            FlashcardUpdate(front="Edited question", back="Edited answer", hint="Useful hint"),
+            self.db,
+            self.user,
+        )
+        self.assertEqual(updated_card.front, "Edited question")
+        self.assertEqual(updated_card.interval_days, 1)
+
+        quiz = self.db.scalar(select(Quiz).where(Quiz.node_id == node.id))
+        original_source = quiz.questions_data["questions"][0]["source"]
+        updated_quiz = update_quiz_question(
+            quiz.id,
+            0,
+            QuizQuestionUpdate(
+                prompt="Which edited option is correct?",
+                options=["First", "Second", "Third", "Fourth"],
+                answer_index=1,
+                explanation="The second option is correct in this edited question.",
+            ),
+            self.db,
+            self.user,
+        )
+        question = updated_quiz.questions_data["questions"][0]
+        self.assertEqual(question["answer_index"], 1)
+        self.assertEqual(question["source"], original_source)
+
+        with self.assertRaises(HTTPException) as denied:
+            update_flashcard(
+                card.id,
+                FlashcardUpdate(front="Not allowed"),
+                self.db,
+                self.other,
+            )
         self.assertEqual(denied.exception.status_code, 404)
 
 

@@ -16,6 +16,10 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def register_user(payload: UserCreate, db: Session = Depends(get_db)):
+    if len(payload.password.encode("utf-8")) > 72:
+        raise HTTPException(status_code=422, detail="Password is too long")
+    if not any(character.isalpha() for character in payload.password) or not any(character.isdigit() for character in payload.password):
+        raise HTTPException(status_code=422, detail="Use at least one letter and one number")
     existing_user = db.scalar(select(User).where(User.email == payload.email))
     if existing_user:
         raise HTTPException(
@@ -65,7 +69,8 @@ def register_user(payload: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=Token)
 def login_user(payload: UserLogin, db: Session = Depends(get_db)):
     user = db.scalar(select(User).where(User.email == payload.email))
-    if not user or not verify_password(payload.password, user.hashed_password):
+    if (not user or len(payload.password.encode("utf-8")) > 72
+            or not verify_password(payload.password, user.hashed_password)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
@@ -104,6 +109,9 @@ def get_me(current_user: User = Depends(get_current_user)):
 @router.put("/password")
 def change_password(payload: PasswordChange, db: Session = Depends(get_db),
                     current_user: User = Depends(get_current_user)):
+    if (len(payload.current_password.encode("utf-8")) > 72
+            or not verify_password(payload.current_password, current_user.hashed_password)):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
     if payload.new_password != payload.confirm_password:
         raise HTTPException(status_code=422, detail="The new passwords do not match")
     if not any(character.isalpha() for character in payload.new_password) or not any(character.isdigit() for character in payload.new_password):

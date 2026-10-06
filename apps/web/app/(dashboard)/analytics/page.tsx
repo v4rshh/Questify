@@ -32,18 +32,38 @@ export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
+    let cancelled = false;
     fetchApi<Course[]>('/courses')
       .then((items) => {
+        if (cancelled) return;
         setCourses(items);
         if (items.length) setCourseId(items[0].id);
       })
-      .catch((err) => setError(err.message));
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load workspaces.');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
   useEffect(() => {
-    if (!courseId) return;
+    if (!courseId) {
+      setAnalytics(null);
+      return;
+    }
+    let cancelled = false;
+    setAnalytics(null);
+    setError('');
     fetchApi<Analytics>(`/learning/courses/${courseId}/analytics`)
-      .then(setAnalytics)
-      .catch((err) => setError(err.message));
+      .then((value) => {
+        if (!cancelled) setAnalytics(value);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load analytics.');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [courseId]);
   const metrics = analytics
     ? [
@@ -148,19 +168,19 @@ export default function AnalyticsPage() {
         }
         .eyebrow {
           color: var(--accent);
-          font-size: 11px;
+          font-size: 13px;
           font-weight: 700;
           letter-spacing: 0.09em;
           text-transform: uppercase;
         }
         .analytics-top h2 {
           margin: 6px 0 7px;
-          font-size: 29px;
+          font-size: 30px;
           letter-spacing: -0.045em;
         }
         .analytics-top p:not(.eyebrow) {
           color: var(--muted);
-          font-size: 14px;
+          font-size: 15px;
         }
         .course-select {
           min-width: 220px;
@@ -185,10 +205,10 @@ export default function AnalyticsPage() {
         .metric span,
         .metric small {
           color: var(--muted);
-          font-size: 12px;
+          font-size: 14px;
         }
         .metric strong {
-          font-size: 29px;
+          font-size: 30px;
           letter-spacing: -0.05em;
         }
         .mastery {
@@ -203,11 +223,11 @@ export default function AnalyticsPage() {
         }
         .mastery-title h3 {
           margin-top: 5px;
-          font-size: 19px;
+          font-size: 20px;
         }
         .mastery-title > span {
           color: var(--muted);
-          font-size: 11px;
+          font-size: 13px;
         }
         .mastery-list {
           display: flex;
@@ -236,7 +256,7 @@ export default function AnalyticsPage() {
           background: var(--accent);
         }
         .node-name strong {
-          font-size: 13px;
+          font-size: 15px;
         }
         .progress {
           height: 7px;
@@ -251,7 +271,7 @@ export default function AnalyticsPage() {
           background: var(--accent);
         }
         .mastery-row b {
-          font-size: 12px;
+          font-size: 14px;
           text-align: right;
         }
         .empty {
@@ -267,11 +287,11 @@ export default function AnalyticsPage() {
         }
         .empty h3 {
           color: var(--foreground);
-          font-size: 19px;
+          font-size: 20px;
         }
         .empty p {
           color: var(--muted);
-          font-size: 13px;
+          font-size: 15px;
           line-height: 1.55;
         }
         .error-message {
@@ -280,7 +300,7 @@ export default function AnalyticsPage() {
           border: 1px solid #e7caca;
           border-radius: 8px;
           color: var(--danger);
-          font-size: 12px;
+          font-size: 14px;
         }
         @media (max-width: 700px) {
           .analytics-page {

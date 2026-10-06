@@ -28,8 +28,8 @@
   --accent-ink: #224737;
   --warm: #c27642;
   --danger: #b54444;
-  --shadow-sm: 0 1px 2px rgba(35, 35, 29, 0.05), 0 4px 12px rgba(35, 35, 29, 0.035);
-  --shadow-md: 0 12px 32px rgba(35, 35, 29, 0.08);
+  --shadow-sm: none;
+  --shadow-md: none;
   /* Compatibility names for the older learning views. */
   --bg-main: #fbfbfa;
   --text-main: #22221f;
@@ -142,12 +142,12 @@ body {
 
 .loading-state strong {
   color: var(--foreground);
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .loading-state span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .route-loading-page {
@@ -228,7 +228,62 @@ h6 {
   display: flex;
   width: 100%;
   min-height: 100vh;
+  background: transparent;
+}
+
+.questify-dashboard-surface {
+  position: relative;
+  min-height: 100vh;
+  isolation: isolate;
   background: var(--background);
+}
+
+.questify-dashboard-routes {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+}
+
+.questify-dot-background {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.questify-dot-background::after {
+  position: absolute;
+  inset: 0;
+  /*
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--background) 48%, transparent),
+    color-mix(in srgb, var(--background) 76%, transparent)
+  );
+  */
+  display: none;
+  content: '';
+}
+
+.questify-dot-field,
+.dot-field-canvas,
+.dot-field-glow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.dot-field-canvas,
+.dot-field-glow {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .questify-dot-background {
+    opacity: 0.65;
+  }
 }
 
 .questify-sidebar-provider {
@@ -318,7 +373,7 @@ h6 {
   border: 1px solid var(--border-strong);
   background: var(--surface);
   color: var(--foreground);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   transition: 0.18s ease;
 }
@@ -401,7 +456,7 @@ h6 {
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px 9px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
 }
 

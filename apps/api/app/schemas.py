@@ -1,14 +1,14 @@
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
-from pydantic import BaseModel, EmailStr, ConfigDict, Field
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, model_validator
 
 
 # Auth & User Schemas
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str
-    full_name: str
+    password: str = Field(min_length=8, max_length=128)
+    full_name: str = Field(min_length=1, max_length=255)
 
 
 class UserLogin(BaseModel):
@@ -47,6 +47,7 @@ class UserRoleUpdate(BaseModel):
 
 
 class PasswordChange(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
     new_password: str = Field(min_length=8, max_length=128)
     confirm_password: str = Field(min_length=8, max_length=128)
 
@@ -146,6 +147,28 @@ class FlashcardReviewCreate(BaseModel):
     quality: int = Field(ge=0, le=5, description="0 means forgotten; 5 means effortless recall")
 
 
+class FlashcardUpdate(BaseModel):
+    front: str | None = Field(default=None, min_length=1, max_length=2000)
+    back: str | None = Field(default=None, min_length=1, max_length=4000)
+    hint: str | None = Field(default=None, max_length=2000)
+
+    @model_validator(mode="after")
+    def contains_change(self):
+        if not self.model_fields_set:
+            raise ValueError("Provide at least one flashcard field to update")
+        if self.front is not None:
+            self.front = self.front.strip()
+            if not self.front:
+                raise ValueError("Flashcard question cannot be empty")
+        if self.back is not None:
+            self.back = self.back.strip()
+            if not self.back:
+                raise ValueError("Flashcard answer cannot be empty")
+        if self.hint is not None:
+            self.hint = self.hint.strip() or None
+        return self
+
+
 class FlashcardReviewRead(BaseModel):
     card: FlashcardRead
     xp_earned: int
@@ -165,6 +188,32 @@ class QuizRead(BaseModel):
 
 class QuizSubmitCreate(BaseModel):
     answers: list[int]
+
+
+class QuizQuestionUpdate(BaseModel):
+    prompt: str | None = Field(default=None, min_length=1, max_length=2000)
+    options: list[str] | None = Field(default=None, min_length=4, max_length=4)
+    answer_index: int | None = Field(default=None, ge=0, le=3)
+    explanation: str | None = Field(default=None, min_length=1, max_length=4000)
+
+    @model_validator(mode="after")
+    def valid_update(self):
+        if not self.model_fields_set:
+            raise ValueError("Provide at least one question field to update")
+        if self.prompt is not None:
+            self.prompt = self.prompt.strip()
+            if not self.prompt:
+                raise ValueError("Question cannot be empty")
+        if self.explanation is not None:
+            self.explanation = self.explanation.strip()
+            if not self.explanation:
+                raise ValueError("Explanation cannot be empty")
+        if self.options is not None:
+            cleaned = [option.strip() for option in self.options]
+            if any(not option for option in cleaned) or len(set(cleaned)) != len(cleaned):
+                raise ValueError("Provide four distinct non-empty options")
+            self.options = cleaned
+        return self
 
 
 class QuizSessionAnswerCreate(BaseModel):
@@ -367,6 +416,26 @@ class TutorCitation(BaseModel):
     chunk_index: int
 
 
+class TutorChallengeRead(BaseModel):
+    id: UUID
+    prompt: str
+    options: list[str]
+
+
+class TutorChallengeAnswerCreate(BaseModel):
+    answer_index: int = Field(ge=0, le=3)
+
+
+class TutorChallengeAnswerRead(BaseModel):
+    correct: bool
+    selected_answer_index: int
+    correct_answer_index: int
+    explanation: str
+    xp_earned: int = 0
+    total_xp: int
+    already_answered: bool = False
+
+
 class TutorChatResponse(BaseModel):
     response: str
     mode: str
@@ -375,6 +444,7 @@ class TutorChatResponse(BaseModel):
     citations: list[TutorCitation] = Field(default_factory=list)
     grounded: bool
     retrieved_chunks: int = 0
+    challenge: TutorChallengeRead | None = None
 
 
 class GamificationDashboardRead(BaseModel):
