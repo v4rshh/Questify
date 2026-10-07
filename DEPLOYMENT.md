@@ -87,7 +87,7 @@ database and the RAG/upload volume regularly:
 mkdir -p backups
 chmod 700 backups
 docker compose -f docker-compose.prod.yml exec -T db \
-  pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" \
+  sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' \
   > "backups/postgres-$(date +%F-%H%M).sql"
 docker compose -f docker-compose.prod.yml exec -T api \
   tar -C /app/data -czf - . \
