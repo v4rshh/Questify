@@ -1,5 +1,8 @@
 # Questify: AI-Powered Gamified Learning Platform
 
+> For a production Docker deployment with HTTPS, persistent data, health
+> checks, backups, and zero-cost VM guidance, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 **Questify** is an AI-driven, gamified study platform designed to transform textbooks, PDFs, DOCX files, and lecture notes into personalized learning roadmaps, interactive knowledge graphs, active recall flashcards, adaptive quizzes, and grounded AI tutor assistance.
 
 ---
